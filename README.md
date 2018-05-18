@@ -19,12 +19,9 @@ A console app which can backtest the strategy and show the (virtual) trades done
 
 Like what you see ? Feel free to donate to support further developments..
 
-BTC: 3QcDYZEVwNZ9V7T9rrVz82JgPZf2e6prTH
 
-LTC: LawBvKHL77gaVMQ3DM7Bk8KJdZDq43r6PL
+[![Donate with Bitcoin](https://en.cryptobadges.io/badge/small/3QcDYZEVwNZ9V7T9rrVz82JgPZf2e6prTH)](https://en.cryptobadges.io/donate/3QcDYZEVwNZ9V7T9rrVz82JgPZf2e6prTH)
 
-ETH: 0xe7350b2a0fe5bfa6c491e15d1b00b8a111350af9
+[![Donate with Litecoin](https://en.cryptobadges.io/badge/small/LawBvKHL77gaVMQ3DM7Bk8KJdZDq43r6PL)](https://en.cryptobadges.io/donate/LawBvKHL77gaVMQ3DM7Bk8KJdZDq43r6PL)
 
-NEO: AYAeD29b2TqYNuHi21qbRcqnJsTJn8NCPj
-
-EOS: 0xe7350b2a0fe5bfa6c491e15d1b00b8a111350af9
+[![Donate with Ethereum](https://en.cryptobadges.io/badge/small/0xe7350b2a0fe5bfa6c491e15d1b00b8a111350af9)](https://en.cryptobadges.io/donate/0xe7350b2a0fe5bfa6c491e15d1b00b8a111350af9)
