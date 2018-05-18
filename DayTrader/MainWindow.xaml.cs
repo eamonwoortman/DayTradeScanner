@@ -4,6 +4,8 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using DayTradeScanner;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace DayTrader
@@ -12,6 +14,7 @@ namespace DayTrader
     {
         private Scanner _scanner;
         private Button _btnStart;
+        private Button _btnDonate;
         private MenuItem _menuItemQuit;
         private MenuItem _menuItemSettings;
         private Thread _thread;
@@ -29,7 +32,7 @@ namespace DayTrader
         private void InitializeComponent()
         {
             AvaloniaXamlLoaderPortableXaml.Load(this);
-           // this.AttachDevTools();
+            // this.AttachDevTools();
             _btnStart = this.Find<Button>("btnStart");
             _btnStart.Click += btnStart_Click;
 
@@ -38,6 +41,34 @@ namespace DayTrader
 
             _menuItemSettings = this.Find<MenuItem>("menuItemSettings");
             _menuItemSettings.Click += menuItemSettings_Click;
+
+            _btnDonate = this.Find<Button>("btnDonate");
+            _btnDonate.Click += btnDonate_Click;
+        }
+
+        private void btnDonate_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            var url = "http://github.com/erwin-beckers/DayTradeScanner";
+            try
+            {
+                Process.Start(url);
+            }
+            catch
+            {
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    url = url.Replace("&", "^&");
+                    Process.Start(new ProcessStartInfo("cmd", $"/c start {url}") { CreateNoWindow = true });
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    Process.Start("xdg-open", url);
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                {
+                    Process.Start("open", url);
+                }
+            }
         }
 
         private void _btnQuit_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)

@@ -1,6 +1,7 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
-<Window xmlns="https://github.com/avaloniaui" Title="Daytrade scanner v1.1 (c) 2018 Erwin Beckers"  Width="640" Height="480">
+<Window xmlns="https://github.com/avaloniaui" Title="Daytrade scanner v1.2 (c) 2018 Erwin Beckers"  Width="640" Height="480">
     <Grid ColumnDefinitions="*" RowDefinitions="Auto,Auto,*,Auto">
+        
         <StackPanel Orientation="Horizontal" Gap="16" Background="#cccccc">
             <Menu Margin="5,5,5,5">
                 <MenuItem Header="File">
@@ -9,10 +10,13 @@
                 </MenuItem>
             </Menu>
         </StackPanel>
-        <StackPanel Grid.Row="1" Orientation="Horizontal">
-            <Button Name="btnStart" Margin="5,5,5,5" Content="{Binding StartButton}" />
-        </StackPanel>
+
+        <Grid Grid.Row="1" ColumnDefinitions="Auto, *, Auto"  RowDefinitions="Auto" Margin="5,5,5,5">
+            <Button Name="btnStart"  Content="{Binding StartButton}" Grid.Column="0" />
+            <Button Name="btnDonate" Content="Donate"  Grid.Column="2" />
+        </Grid>
         <TextBlock Grid.Row="2" Margin="5,0,0,0">Data...</TextBlock>
+        
         <ListBox Grid.Row="2" Margin="5,0,0,0" Items="{Binding Signals}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
@@ -24,6 +28,7 @@
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
+        
         <StackPanel Grid.Row="3" Orientation="Horizontal" Background="#cccccc">
             <TextBlock VerticalAlignment="Center" Margin="5,5,5,5" Text="{Binding StatusText}">
             </TextBlock>
