@@ -47,7 +47,7 @@ namespace DayTradeScanner
 		{
 			Exchange = "Bitfinex";
 			BTC = true;
-			Min24HrVolume = 400000;
+			Min24HrVolume = 1000;
 			MinBollingerBandWidth = 2;
 			AllowShorts = false;
 			MaxFlatCandles = 5;
