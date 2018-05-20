@@ -14,15 +14,15 @@
         </StackPanel>
 
         <TextBlock Text="Min 24hr Volume" Grid.Row="2" Grid.Column="0" Margin="0,0,10,10"  VerticalAlignment="Center" />
-        <TextBox Name="tbVolume"  Grid.Row="2" Grid.Column="1" Text="{Binding Volume, Mode=TwoWay}" Width="150"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
+        <TextBox Name="tbVolume"  Grid.Row="2" Grid.Column="1" Text="{Binding Volume, Mode=TwoWay}"  Margin="0,0,10,10"   Width="150"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
 
 
         <TextBlock Text="Show short signals" Grid.Row="3" Grid.Column="0" Margin="0,0,10,10"  VerticalAlignment="Center" />
-        <CheckBox Name="cbShorts" IsChecked="{Binding AllowShorts, Mode=TwoWay}"  Grid.Row="3" Grid.Column="1"></CheckBox>
+        <CheckBox Name="cbShorts" IsChecked="{Binding AllowShorts, Mode=TwoWay}" Margin="0,0,1,10"  Grid.Row="3" Grid.Column="1"></CheckBox>
 
         <TextBlock Text="Min. Bollinger bandwidth" Grid.Row="4" Grid.Column="0" Margin="0,0,10,10"  VerticalAlignment="Center" />
         <StackPanel Orientation="Horizontal" Grid.Row="4" Grid.Column="1" Gap="10"  Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
-            <TextBox Text="{Binding BollingerBandWidth, Mode=TwoWay}" Width="150"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
+            <TextBox Text="{Binding BollingerBandWidth, Mode=TwoWay}" Width="50"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
             <TextBlock Text="%" VerticalAlignment="Center" />
         </StackPanel>
 
@@ -35,10 +35,10 @@
 
         <TextBlock Text="Max. panic" Grid.Row="6" Grid.Column="0" Margin="0,0,10,10"  VerticalAlignment="Center" />
         <StackPanel Orientation="Horizontal" Grid.Row="6" Grid.Column="1" Gap="10"  Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
-            <TextBox Text="{Binding MaxPanic, Mode=TwoWay}" Width="150"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
+            <TextBox Text="{Binding MaxPanic, Mode=TwoWay}" Width="50"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
             <TextBlock Text="%" VerticalAlignment="Center" />
         </StackPanel>
         
-        <Button Name="btnSave" Width="100" HorizontalAlignment="Right" VerticalAlignment="Center"  Grid.Row="7" Grid.Column="1">Save</Button>
+        <Button Name="btnSave" Width="100" HorizontalAlignment="Right"  Margin="0,0,10,10"  VerticalAlignment="Center"  Grid.Row="7" Grid.Column="1">Save</Button>
     </Grid>
 </Window>

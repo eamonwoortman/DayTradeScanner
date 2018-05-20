@@ -41,10 +41,10 @@ namespace DayTrader
 			CurrencyBNB = settings.BNB;
 			CurrencyBTC = settings.BTC;
 			AllowShorts = settings.AllowShorts;
-			MaxPanic = settings.MaxPanic.ToString();
+            BollingerBandWidth = $"{settings.MinBollingerBandWidth:0.00}";
+			MaxPanic = $"{settings.MaxPanic:0.00}";
 			MaxFlatCandles = settings.MaxFlatCandles.ToString();
 			MaxFlatCandleCount = settings.MaxFlatCandleCount.ToString();
-			BollingerBandWidth = settings.MinBollingerBandWidth.ToString();
 
 			Volume = settings.Min24HrVolume.ToString();
 			_dropDown.SelectedIndex = Exchanges.IndexOf(settings.Exchange);
