@@ -9,8 +9,8 @@ namespace DayTrader.ConsoleApp
 		private static void Main(string[] args)
 		{
 			var settings = new Settings();
-			settings.BTC = true;
-			settings.Exchange = "Kraken";
+			settings.USD = true;
+			settings.Exchange = "Bitfinex";
 			var scanner = new Scanner(settings);
 			while (true)
 			{

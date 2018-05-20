@@ -20,16 +20,17 @@ namespace DayTradeScanner.Bot.Implementation
 		private const decimal SecondRebuyFactor = 4m;    // 4x 
 		private const decimal ThirdRebuyFactor = 8m;     // 8x 
 		private const int MaxTimesRebuy = 2;
-		private const bool AllowShorting = true;
-  
+
 
 		private ITrade _trade = null;
 		private decimal _bundleSize;
 		private StrategyState _state = StrategyState.Scanning;
+		private Settings _settings;
 
-		public DayTradingStrategy(string symbol)
+		public DayTradingStrategy(string symbol, Settings settings)
 		{
-			Symbol = symbol; 
+			Symbol = symbol;
+			_settings = settings;
 		}
 
 		public string Symbol { get; set; }
@@ -39,7 +40,7 @@ namespace DayTradeScanner.Bot.Implementation
 		/// </summary>
 		/// <param name="candles">candle history</param>
 		/// <param name="bar">currentcandle</param>
-        /// <param name="tradeManager">tradeManager</param>
+		/// <param name="tradeManager">tradeManager</param>
 		public void OnCandle(List<MarketCandle> candles, int bar, ITradeManager tradeManager)
 		{
 			switch (_state)
@@ -109,7 +110,7 @@ namespace DayTradeScanner.Bot.Implementation
 		/// <summary>
 		/// Adds more to the current position by buying (or selling) more coins.
 		/// </summary>
-        /// <param name="tradeManager">tradeManager</param>
+		/// <param name="tradeManager">tradeManager</param>
 		/// <returns><c>true</c>, if rebuy was done, <c>false</c> otherwise.</returns>
 		private bool DoRebuy(MarketCandle candle, decimal factor, ITradeManager tradeManager)
 		{
@@ -136,13 +137,35 @@ namespace DayTradeScanner.Bot.Implementation
 		/// <param name="tradeType">returns trade type.</param>
 		public bool IsValidEntry(List<MarketCandle> candles, int bar, out TradeType tradeType)
 		{
+			tradeType = TradeType.Long;
+			if (candles.Count < bar + 20)
+			{
+				return false;
+			}
 			var candle = candles[bar];
 			var bbands = new BollingerBands(candles, bar);
 			var stoch = new Stochastics(candles, bar);
-			tradeType = TradeType.Long;
+
+			// more then 5 flat candles in last 15 candles ?
+			var flatCandles = 0;
+			for (int i = 0; i < _settings.MaxFlatCandleCount; ++i)
+			{
+				var candleStick = candles[bar + i];
+				if (candleStick.ConvertedVolume <= 0) flatCandles++;
+			}
+			if (flatCandles > _settings.MaxFlatCandles) return false;
+
+
+			// check for panic
+			var panic = (double)((candle.ClosePrice / candle.OpenPrice) * 100m);
+			if (panic < (100 - _settings.MaxPanic) || panic > (100 + _settings.MaxPanic))
+			{
+				// more then 5% panic
+				return false;
+			}
 
 			// is bolling bands width > 2%
-			if (bbands.Bandwidth >= 2m)
+			if (bbands.Bandwidth >= (decimal)_settings.MinBollingerBandWidth)
 			{
 				if (candle.ClosePrice < bbands.Lower && stoch.K < 20 && stoch.D < 20)
 				{
@@ -151,7 +174,7 @@ namespace DayTradeScanner.Bot.Implementation
 					tradeType = TradeType.Long;
 					return true;
 				}
-				else if (candle.ClosePrice > bbands.Upper && stoch.K > 80 && stoch.D > 80 && AllowShorting)
+				else if (candle.ClosePrice > bbands.Upper && stoch.K > 80 && stoch.D > 80 && _settings.AllowShorts)
 				{
 					// open sell order when price closes above upper bollinger bands
 					// and stochastics K & D are both above 80
@@ -167,7 +190,7 @@ namespace DayTradeScanner.Bot.Implementation
 		/// </summary>
 		/// <param name="candles">candle history</param>
 		/// <param name="bar">currentcandle</param>
-        /// <param name="tradeManager">tradeManager</param>
+		/// <param name="tradeManager">tradeManager</param>
 		private void ScanForEntry(List<MarketCandle> candles, int bar, ITradeManager tradeManager)
 		{
 			TradeType tradeType;
@@ -215,7 +238,7 @@ namespace DayTradeScanner.Bot.Implementation
 			if (_trade.TradeType == TradeType.Long && candle.ClosePrice < bbands.Lower && stoch.K < 20 && stoch.D < 20)
 			{
 				var price = _trade.OpenPrice * RebuyPercentage;
-				if (_trade.Rebuys.Count > 0 ) price = _trade.Rebuys.Last().Price * RebuyPercentage;
+				if (_trade.Rebuys.Count > 0) price = _trade.Rebuys.Last().Price * RebuyPercentage;
 				return candle.ClosePrice < price;
 			}
 
@@ -237,7 +260,7 @@ namespace DayTradeScanner.Bot.Implementation
 		/// <param name="candles">candle history</param>
 		/// <param name="bar">currentcandle</param>
 		/// <param name="tradeManager">tradeManager</param>
-		private void CloseTradeIfPossible(List<MarketCandle> candles, int bar,ITradeManager tradeManager)
+		private void CloseTradeIfPossible(List<MarketCandle> candles, int bar, ITradeManager tradeManager)
 		{
 			var candle = candles[bar];
 			var bbands = new BollingerBands(candles, bar);

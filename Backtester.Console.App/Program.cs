@@ -11,12 +11,13 @@ namespace Backtester.Console.App
         private static void Main(string[] args)
         {
 			var startTime = new DateTime(2018, 5, 14, 0, 0, 0);
+			var settings = new Settings();
 				
             // create a virtual trade manager
             var virtualTradeManager = new VirtualTradeManager();
 
             // create day trading strategy
-            var strategy = new DayTradingStrategy("ETHBTC");
+            var strategy = new DayTradingStrategy("ETHBTC", settings);
 
             // create new backtester
             var tester = new BackTester();

@@ -129,10 +129,10 @@ namespace DayTradeScanner
             {
                 // download the new candles
                 var candles = (await _api.GetCandlesAsync(symbol, 60 * 5, DateTime.Now.AddMinutes(-5 * 50))).Reverse().ToList();
-
+				candles = AddMissingCandles(candles);
                 // scan candles for buy/sell signal
                 TradeType tradeType = TradeType.Long;
-                var strategy = new DayTradingStrategy(symbol);
+				var strategy = new DayTradingStrategy(symbol, _settings);
                 if (strategy.IsValidEntry(candles, 0, out tradeType))
                 {
                     // ignore signals for shorts when not allowed
@@ -148,10 +148,39 @@ namespace DayTradeScanner
                     };
                 }
             }
-            catch (Exception)
+            catch (Exception x)
             {
+				var xx = 123;
             }
             return null;
         }
-    }
+
+		private List<MarketCandle> AddMissingCandles(List<MarketCandle> candles)
+		{
+			if (candles.Count <= 0) return candles;
+
+			var result = new List<MarketCandle>();
+			result.Add(candles[0]);
+			var timeStamp = candles[0].Timestamp;
+			for (int i = 1; i < candles.Count;++i)
+			{
+				var nextCandle = candles[i];
+				var mins = (timeStamp - nextCandle.Timestamp).TotalMinutes;
+				while (mins > 5)
+				{
+					result.Add(new MarketCandle()
+					{
+						OpenPrice = nextCandle.OpenPrice,
+						ClosePrice = nextCandle.ClosePrice,
+						Timestamp = timeStamp.AddMinutes(-5)
+					});
+					mins -= 5;
+				}
+                result.Add(nextCandle);
+				timeStamp = nextCandle.Timestamp;
+            }
+
+			return result;
+		}
+	}
 }

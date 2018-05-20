@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
-<Window xmlns="https://github.com/avaloniaui" Title="Settings" Width="400" Height="200">
-    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" Margin="10,10,10,10">
+<Window xmlns="https://github.com/avaloniaui" Title="Settings" Width="500" Height="300">
+    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="10,10,10,10">
         <TextBlock Text="Exchange" Grid.Row="0" Grid.Column="0" Margin="0,0,10,10" VerticalAlignment="Center" />
         <DropDown Name="dropExchange" Grid.Row="0" Grid.Column="1"  Margin="0,0,0,10" Width="150" SelectedIndex="0" HorizontalAlignment="Left"  VerticalAlignment="Center" Items="{Binding Exchanges}" />
 
@@ -17,10 +17,28 @@
         <TextBox Name="tbVolume"  Grid.Row="2" Grid.Column="1" Text="{Binding Volume, Mode=TwoWay}" Width="150"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
 
 
-        <TextBlock Text="Short signals" Grid.Row="3" Grid.Column="0" Margin="0,0,10,10"  VerticalAlignment="Center" />
+        <TextBlock Text="Show short signals" Grid.Row="3" Grid.Column="0" Margin="0,0,10,10"  VerticalAlignment="Center" />
         <CheckBox Name="cbShorts" IsChecked="{Binding AllowShorts, Mode=TwoWay}"  Grid.Row="3" Grid.Column="1"></CheckBox>
 
+        <TextBlock Text="Min. Bollinger bandwidth" Grid.Row="4" Grid.Column="0" Margin="0,0,10,10"  VerticalAlignment="Center" />
+        <StackPanel Orientation="Horizontal" Grid.Row="4" Grid.Column="1" Gap="10"  Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
+            <TextBox Text="{Binding BollingerBandWidth, Mode=TwoWay}" Width="150"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
+            <TextBlock Text="%" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <TextBlock Text="Max flat candles" Grid.Row="5" Grid.Column="0" Margin="0,0,10,10"  VerticalAlignment="Center" />
+        <StackPanel Orientation="Horizontal" Grid.Row="5" Grid.Column="1" Gap="10"  Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
+            <TextBox Text="{Binding MaxFlatCandles, Mode=TwoWay}" Width="50"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
+            <TextBlock Text="/" VerticalAlignment="Center" />
+            <TextBox Text="{Binding MaxFlatCandleCount, Mode=TwoWay}" Width="50"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
+        </StackPanel>
+
+        <TextBlock Text="Max. panic" Grid.Row="6" Grid.Column="0" Margin="0,0,10,10"  VerticalAlignment="Center" />
+        <StackPanel Orientation="Horizontal" Grid.Row="6" Grid.Column="1" Gap="10"  Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
+            <TextBox Text="{Binding MaxPanic, Mode=TwoWay}" Width="150"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
+            <TextBlock Text="%" VerticalAlignment="Center" />
+        </StackPanel>
         
-        <Button Name="btnSave" Width="100" HorizontalAlignment="Right" VerticalAlignment="Center"  Grid.Row="4" Grid.Column="1">Save</Button>
+        <Button Name="btnSave" Width="100" HorizontalAlignment="Right" VerticalAlignment="Center"  Grid.Row="7" Grid.Column="1">Save</Button>
     </Grid>
 </Window>
