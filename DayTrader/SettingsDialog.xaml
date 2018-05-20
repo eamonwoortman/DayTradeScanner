@@ -41,7 +41,10 @@
             <TextBox Text="{Binding MaxPanic, Mode=TwoWay}" Width="50"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
             <TextBlock Text="%" VerticalAlignment="Center" />
         </StackPanel>
-        
-        <Button Name="btnSave" Width="100" HorizontalAlignment="Right"  Margin="0,0,10,10"  VerticalAlignment="Center"  Grid.Row="7" Grid.Column="1">Save</Button>
+         <StackPanel Orientation="Horizontal" Grid.Row="8" Grid.Column="1" Gap="10"  Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
+        <Button Name="btnReset" Width="100" HorizontalAlignment="Right"  Margin="0,0,10,10"  VerticalAlignment="Center">Reset</Button>
+        <Button Name="btnSave" Width="100" HorizontalAlignment="Right"  Margin="0,0,10,10"  VerticalAlignment="Center">Save</Button>
+        </StackPanel>
+       
     </Grid>
 </Window>

@@ -27,10 +27,10 @@ namespace DayTrader
 
 			TimeFrames = new ObservableCollection<string>();
 			TimeFrames.Add("4 hr");
-            TimeFrames.Add("1 hr");
-            TimeFrames.Add("30 min");
-            TimeFrames.Add("15 min");
-            TimeFrames.Add("5 min");
+			TimeFrames.Add("1 hr");
+			TimeFrames.Add("30 min");
+			TimeFrames.Add("15 min");
+			TimeFrames.Add("5 min");
 			TimeFrames.Add("1 min");
 
 			InitializeComponent();
@@ -40,20 +40,28 @@ namespace DayTrader
 		{
 			AvaloniaXamlLoaderPortableXaml.Load(this);
 			this.AttachDevTools();
-            _dropDownExchange = this.Find<DropDown>("dropExchange");
+			_dropDownExchange = this.Find<DropDown>("dropExchange");
 			_dropDownTimeFrame = this.Find<DropDown>("dropTimeFrame");
 
 			var btnSave = this.Find<Button>("btnSave");
 			btnSave.Click += BtnSave_Click;
 
+			var btnReset = this.Find<Button>("btnReset");
+			btnReset.Click += btnReset_Click;
+
 			var settings = SettingsStore.Load();
+			Init(settings);
+		}
+
+		private void Init(Settings settings)
+		{
 			CurrencyUSD = settings.USD;
 			CurrencyETH = settings.ETH;
 			CurrencyEUR = settings.EUR;
 			CurrencyBNB = settings.BNB;
 			CurrencyBTC = settings.BTC;
 			AllowShorts = settings.AllowShorts;
-            BollingerBandWidth = $"{settings.MinBollingerBandWidth:0.00}";
+			BollingerBandWidth = $"{settings.MinBollingerBandWidth:0.00}";
 			MaxPanic = $"{settings.MaxPanic:0.00}";
 			MaxFlatCandles = settings.MaxFlatCandles.ToString();
 			MaxFlatCandleCount = settings.MaxFlatCandleCount.ToString();
@@ -61,6 +69,12 @@ namespace DayTrader
 			Volume = settings.Min24HrVolume.ToString();
 			_dropDownExchange.SelectedIndex = Exchanges.IndexOf(settings.Exchange);
 			_dropDownTimeFrame.SelectedIndex = TimeFrames.IndexOf(settings.TimeFrame);
+		}
+
+		private void btnReset_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+		{
+			var settings = new Settings();
+			Init(settings);
 		}
 
 		private void BtnSave_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
