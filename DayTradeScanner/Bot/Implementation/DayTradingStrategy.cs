@@ -20,7 +20,7 @@ namespace DayTradeScanner.Bot.Implementation
 		private const decimal SecondRebuyFactor = 4m;    // 4x 
 		private const decimal ThirdRebuyFactor = 8m;     // 8x 
 		private const int MaxTimesRebuy = 2;
-		private const bool AllowShorting = false;
+		private const bool AllowShorting = true;
   
 
 		private ITrade _trade = null;
