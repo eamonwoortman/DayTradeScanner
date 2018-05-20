@@ -12,6 +12,7 @@ namespace DayTradeScanner
         private Settings _settings;
         private ExchangeAPI _api;
         private List<string> _symbols = new List<string>();
+		private int _minutes;
 
         public Scanner(Settings settings)
         {
@@ -47,6 +48,34 @@ namespace DayTradeScanner
                     Console.WriteLine($"Unknown exchange:{_settings.Exchange}");
                     return;
             }
+
+			switch(_settings.TimeFrame.ToLowerInvariant())
+			{
+				case "1 min":
+					_minutes = 1;
+					break;
+
+                case "5 min":
+                    _minutes = 5;
+					break;
+
+                case "15 min":
+                    _minutes = 15;
+					break;
+
+                case "30 min":
+                    _minutes = 30;
+					break;
+
+                case "1 hr":
+                    _minutes = 60;
+					break;
+
+                case "4 hr":
+                    _minutes = 4*60;
+                    break;
+			}
+
             FindCoinsWithEnoughVolume();
         }
 
@@ -128,7 +157,7 @@ namespace DayTradeScanner
             try
             {
                 // download the new candles
-                var candles = (await _api.GetCandlesAsync(symbol, 60 * 5, DateTime.Now.AddMinutes(-5 * 50))).Reverse().ToList();
+				var candles = (await _api.GetCandlesAsync(symbol, 60 * _minutes, DateTime.Now.AddMinutes(-5 * 50))).Reverse().ToList();
 				candles = AddMissingCandles(candles);
                 // scan candles for buy/sell signal
                 TradeType tradeType = TradeType.Long;
@@ -148,9 +177,8 @@ namespace DayTradeScanner
                     };
                 }
             }
-            catch (Exception x)
+            catch (Exception )
             {
-				var xx = 123;
             }
             return null;
         }
@@ -166,15 +194,17 @@ namespace DayTradeScanner
 			{
 				var nextCandle = candles[i];
 				var mins = (timeStamp - nextCandle.Timestamp).TotalMinutes;
-				while (mins > 5)
+				while (mins > _minutes)
 				{
 					result.Add(new MarketCandle()
 					{
 						OpenPrice = nextCandle.OpenPrice,
 						ClosePrice = nextCandle.ClosePrice,
-						Timestamp = timeStamp.AddMinutes(-5)
+						HighPrice = nextCandle.HighPrice,
+						LowPrice = nextCandle.LowPrice,
+						Timestamp = timeStamp.AddMinutes(-_minutes)
 					});
-					mins -= 5;
+					mins -= _minutes;
 				}
                 result.Add(nextCandle);
 				timeStamp = nextCandle.Timestamp;

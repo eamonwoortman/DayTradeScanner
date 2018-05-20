@@ -8,8 +8,10 @@ namespace DayTrader
 {
 	public class SettingsDialog : Window
 	{
-		private DropDown _dropDown;
+		private DropDown _dropDownExchange;
+		private DropDown _dropDownTimeFrame;
 		public ObservableCollection<string> Exchanges { get; set; }
+		public ObservableCollection<string> TimeFrames { get; set; }
 
 		public SettingsDialog()
 		{
@@ -22,6 +24,15 @@ namespace DayTrader
 			Exchanges.Add("HitBTC");
 			Exchanges.Add("Kraken");
 
+
+			TimeFrames = new ObservableCollection<string>();
+			TimeFrames.Add("4 hr");
+            TimeFrames.Add("1 hr");
+            TimeFrames.Add("30 min");
+            TimeFrames.Add("15 min");
+            TimeFrames.Add("5 min");
+			TimeFrames.Add("1 min");
+
 			InitializeComponent();
 		}
 
@@ -29,7 +40,8 @@ namespace DayTrader
 		{
 			AvaloniaXamlLoaderPortableXaml.Load(this);
 			this.AttachDevTools();
-			_dropDown = this.Find<DropDown>("dropExchange");
+            _dropDownExchange = this.Find<DropDown>("dropExchange");
+			_dropDownTimeFrame = this.Find<DropDown>("dropTimeFrame");
 
 			var btnSave = this.Find<Button>("btnSave");
 			btnSave.Click += BtnSave_Click;
@@ -47,7 +59,8 @@ namespace DayTrader
 			MaxFlatCandleCount = settings.MaxFlatCandleCount.ToString();
 
 			Volume = settings.Min24HrVolume.ToString();
-			_dropDown.SelectedIndex = Exchanges.IndexOf(settings.Exchange);
+			_dropDownExchange.SelectedIndex = Exchanges.IndexOf(settings.Exchange);
+			_dropDownTimeFrame.SelectedIndex = TimeFrames.IndexOf(settings.TimeFrame);
 		}
 
 		private void BtnSave_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -87,7 +100,8 @@ namespace DayTrader
 			{
 				settings.MinBollingerBandWidth = d;
 			}
-			settings.Exchange = Exchanges[_dropDown.SelectedIndex];
+			settings.Exchange = Exchanges[_dropDownExchange.SelectedIndex];
+			settings.TimeFrame = TimeFrames[_dropDownTimeFrame.SelectedIndex];
 			SettingsStore.Save(settings);
 			this.Close();
 		}

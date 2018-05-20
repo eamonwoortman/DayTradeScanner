@@ -6,7 +6,7 @@ namespace DayTradeScanner
 {
     public static class SettingsStore
     {
-        private const string SETTINGS_FILE = "settings2.dat";
+        private const string SETTINGS_FILE = "settings3.dat";
 
         static public Settings Load()
         {
