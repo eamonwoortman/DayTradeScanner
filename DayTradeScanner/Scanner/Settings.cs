@@ -10,7 +10,7 @@ namespace DayTradeScanner
 
         [Key(1)]
         public bool USD { get; set; }
-
+        
         [Key(2)]
         public bool EUR { get; set; }
 
@@ -32,9 +32,9 @@ namespace DayTradeScanner
         public Settings()
         {
             Exchange = "Bitfinex";
-            USD = true;
+            BTC = true;
             Min24HrVolume = 400000;
-            AllowShorts = true;
+			AllowShorts = false;
         }
     }
 }

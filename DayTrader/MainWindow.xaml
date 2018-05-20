@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
-<Window xmlns="https://github.com/avaloniaui" Title="Daytrade scanner v1.2 (c) 2018 Erwin Beckers"  Width="640" Height="480">
+<Window xmlns="https://github.com/avaloniaui" Title="Daytrade scanner v1.3 (c) 2018 Erwin Beckers"  Width="640" Height="480">
     <Grid ColumnDefinitions="*" RowDefinitions="Auto,Auto,*,Auto">
         
         <StackPanel Orientation="Horizontal" Gap="16" Background="#cccccc">

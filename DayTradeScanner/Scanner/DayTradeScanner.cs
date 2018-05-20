@@ -70,11 +70,18 @@ namespace DayTradeScanner
                     continue;
                 }
 
-                // check volume
+                // check 24hr volume
                 var ticker = allTickers.FirstOrDefault(e => e.Key == symbol).Value;
-                if (ticker.Volume.ConvertedVolume < _settings.Min24HrVolume)
+				var volume = ticker.Volume.ConvertedVolume;
+				if (_api is ExchangeBittrexAPI)
+				{
+					// bittrex reports wrong volume :-(
+					volume = ticker.Volume.BaseVolume;
+				}
+
+				if (volume < _settings.Min24HrVolume)
                 {
-                    // ignore since volume is to low
+                    // ignore since 24hr volume is too low
                     continue;
                 }
 
@@ -94,7 +101,8 @@ namespace DayTradeScanner
             if (_settings.ETH && symbol.ToStringLowerInvariant().Contains("eth")) return true;
             if (_settings.EUR && symbol.ToStringLowerInvariant().Contains("eur")) return true;
             if (_settings.USD && symbol.ToStringLowerInvariant().Contains("usd")) return true;
-            if (_settings.BTC && symbol.ToStringLowerInvariant().Contains("btc")) return true;
+			if (_settings.BTC && symbol.ToStringLowerInvariant().Contains("btc")) return true;
+            if (_settings.BTC && symbol.ToStringLowerInvariant().Contains("xbt")) return true;
             if (_settings.BNB && symbol.ToStringLowerInvariant().Contains("bnb")) return true;
             return false;
         }

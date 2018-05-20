@@ -54,13 +54,13 @@ namespace DayTradeScanner
 		/// </summary>
 		/// <param name="api">exchange api</param>
 		/// <param name="strategy">strategy to test</param>
-		public void Test(ExchangeAPI api, IStrategy strategy)
+		public void Test(ExchangeAPI api, IStrategy strategy, DateTime startTime)
 		{
 			// Get candle sticks
 			var allCandles = _cache.Load(strategy.Symbol);
 			if (allCandles == null)
 			{
-				allCandles = DownloadCandlesFromExchange(api, strategy.Symbol, new DateTime(2018, 1, 1, 0, 0, 0), DateTime.Now);
+				allCandles = DownloadCandlesFromExchange(api, strategy.Symbol, startTime, DateTime.Now);
 
 				_cache.Save(strategy.Symbol, allCandles);
 			}

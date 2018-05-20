@@ -13,4 +13,7 @@
     <ProjectReference Include="..\DayTradeScanner\DayTradeScanner.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Remove="EOSBTC-candles.dat" />
+  </ItemGroup>
 </Project>

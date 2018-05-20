@@ -72,45 +72,56 @@ namespace DayTrader
         }
 
         private void _btnQuit_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
-        {
-            if (_thread != null)
-            {
-                _running = false;
-                _thread.Join();
-                _thread = null;
-            }
+		{
+			StopScanning();
             this.Close();
         }
 
         private void menuItemSettings_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
-        {
+		{
+			StopScanning();
             var dlg = new SettingsDialog();
             dlg.Show();
         }
 
-        private void btnStart_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
-        {
-            if (_thread != null)
+
+		private void StopScanning()
+		{            
+			if (_thread != null)
             {
                 _running = false;
                 _thread.Join();
                 _thread = null;
                 StartButton = "Start scanning";
                 StatusText = "stopped...";
-                return;
+            }
+		}
+
+		private void StartScanning()
+		{
+			StopScanning();
+            StartButton = "Stop scanning";
+            StatusText = "initializing...";
+            _running = true;
+            _thread = new Thread(new ThreadStart(DoScan));
+            _thread.Start();
+			
+		}
+
+        private void btnStart_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+		{
+            if (_thread != null)
+            {
+				StopScanning();
             }
             else
             {
-                StartButton = "Stop scanning";
-                StatusText = "initializing...";
-                _running = true;
-                _thread = new Thread(new ThreadStart(DoScan));
-                _thread.Start();
+				StartScanning();
             }
         }
 
         private async void DoScan()
-        {
+		{
             var settings = SettingsStore.Load();
 
             SetStatusText($"initializing {settings.Exchange} with 24hr volume of {settings.Min24HrVolume} ...");
@@ -121,7 +132,7 @@ namespace DayTrader
                 foreach (var symbol in _scanner.Symbols)
                 {
                     idx++;
-                    SetStatusText($"scanning {symbol} ({idx}/{_scanner.Symbols.Count})...");
+					SetStatusText($"{settings.Exchange} scanning {symbol} ({idx}/{_scanner.Symbols.Count})...");
                     var signal = await _scanner.ScanAsync(symbol);
                     if (signal != null)
                     {
@@ -131,9 +142,18 @@ namespace DayTrader
                         });
                     }
                 }
-                SetStatusText($"sleeping...");
-                Thread.Sleep(5000);
-            }
+				if (!_running) break;
+                SetStatusText($"sleeping.");
+				Thread.Sleep(1000);
+                
+				if (!_running) break;
+				SetStatusText($"sleeping..");
+				Thread.Sleep(1000);
+
+				if (!_running) break;
+				SetStatusText($"sleeping...");
+                Thread.Sleep(1000);
+			}
         }
 
         private void SetStatusText(string statusTxt)
