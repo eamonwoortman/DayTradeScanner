@@ -141,6 +141,7 @@ namespace DayTrader
                             Signals.Insert(0, signal);
                         });
                     }
+	                if (!_running) break;
                 }
 				if (!_running) break;
                 SetStatusText($"sleeping.");
