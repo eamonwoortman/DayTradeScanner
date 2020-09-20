@@ -41,9 +41,8 @@ namespace DayTradeScanner
 		[Key(11)]
 		public double MaxPanic { get; set; }
         
-		[Key(12)]
-        public string TimeFrame { get; set; }
-
+		[Key(13)]
+		public string[] TimeFrames { get; set; }
 
 
 		public Settings()
@@ -56,7 +55,7 @@ namespace DayTradeScanner
 			MaxFlatCandles = 5;
 			MaxFlatCandleCount = 15;
 			MaxPanic = 5;
-			TimeFrame = "5 min";
+			TimeFrames = new string[] { "5 min" };
 		}
 	}
 }

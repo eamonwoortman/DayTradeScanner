@@ -1,15 +1,15 @@
-﻿using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
+﻿using System.Windows;
 using DayTradeScanner;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Windows.Controls;
 
 namespace DayTrader
 {
-	public class SettingsDialog : Window
+	public partial class SettingsDialog : Window
 	{
-		private DropDown _dropDownExchange;
-		private DropDown _dropDownTimeFrame;
+		private ComboBox _dropDownExchange;
+		private ListBox _dropDownTimeFrame;
 		public ObservableCollection<string> Exchanges { get; set; }
 		public ObservableCollection<string> TimeFrames { get; set; }
 
@@ -31,22 +31,22 @@ namespace DayTrader
 			TimeFrames.Add("30 min");
 			TimeFrames.Add("15 min");
 			TimeFrames.Add("5 min");
+			TimeFrames.Add("3 min");
 			TimeFrames.Add("1 min");
 
 			InitializeComponent();
+			InitializeComponentCustom();
 		}
 
-		private void InitializeComponent()
+		private void InitializeComponentCustom()
 		{
-			AvaloniaXamlLoaderPortableXaml.Load(this);
-			this.AttachDevTools();
-			_dropDownExchange = this.Find<DropDown>("dropExchange");
-			_dropDownTimeFrame = this.Find<DropDown>("dropTimeFrame");
+			_dropDownExchange = (ComboBox)FindName("dropExchange");
+			_dropDownTimeFrame = (ListBox)FindName("dropTimeFrame");
 
-			var btnSave = this.Find<Button>("btnSave");
+			var btnSave = (Button)FindName("btnSave");
 			btnSave.Click += BtnSave_Click;
 
-			var btnReset = this.Find<Button>("btnReset");
+			var btnReset = (Button)FindName("btnReset");
 			btnReset.Click += btnReset_Click;
 
 			var settings = SettingsStore.Load();
@@ -68,16 +68,30 @@ namespace DayTrader
 
 			Volume = settings.Min24HrVolume.ToString();
 			_dropDownExchange.SelectedIndex = Exchanges.IndexOf(settings.Exchange);
-			_dropDownTimeFrame.SelectedIndex = TimeFrames.IndexOf(settings.TimeFrame);
+			//_dropDownTimeFrame.SelectedIndex = TimeFrames.IndexOf(settings.TimeFrame);
+			if (settings.TimeFrames == null) {
+				settings.TimeFrames = new string[] { "5 min" };
+				SettingsStore.Save(settings);
+			}
+			SetSelectedItems(settings.TimeFrames);
 		}
 
-		private void btnReset_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+
+		private void SetSelectedItems(string[] timeframes) {
+			_dropDownTimeFrame.SelectedItems.Clear();
+			foreach (string timeframe in timeframes) {
+				_dropDownTimeFrame.SelectedItems.Add(timeframe);
+			}
+		}
+		
+
+		private void btnReset_Click(object sender, RoutedEventArgs e)
 		{
 			var settings = new Settings();
 			Init(settings);
 		}
 
-		private void BtnSave_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+		private void BtnSave_Click(object sender, RoutedEventArgs e)
 		{
 			var settings = SettingsStore.Load();
 			settings.USD = CurrencyUSD;
@@ -115,98 +129,99 @@ namespace DayTrader
 				settings.MinBollingerBandWidth = d;
 			}
 			settings.Exchange = Exchanges[_dropDownExchange.SelectedIndex];
-			settings.TimeFrame = TimeFrames[_dropDownTimeFrame.SelectedIndex];
+			settings.TimeFrames = SelectedItemsAsString(_dropDownTimeFrame);
 			SettingsStore.Save(settings);
 			this.Close();
 		}
 
-		public static readonly AvaloniaProperty<bool> CurrencyUSDProperty = AvaloniaProperty.Register<SettingsDialog, bool>("CurrencyUSD", inherits: true);
+		public static string[] SelectedItemsAsString(ListBox listBox) {
+			List<string> results = new List<string>();
+			for (int i = 0; i < listBox.SelectedItems.Count; ++i)
+				results.Add((string)listBox.SelectedItems[i]);
+			return results.ToArray();
+		}
+
+		public static readonly DependencyProperty CurrencyUSDProperty = DependencyProperty.Register("CurrencyUSD", typeof(bool), typeof(SettingsDialog));
 
 		public bool CurrencyUSD
 		{
-			get { return this.GetValue(CurrencyUSDProperty); }
+			get { return (bool)this.GetValue(CurrencyUSDProperty); }
 			set { this.SetValue(CurrencyUSDProperty, value); }
 		}
 
-		public static readonly AvaloniaProperty<bool> CurrencyEURProperty = AvaloniaProperty.Register<SettingsDialog, bool>("CurrencyEUR", inherits: true);
+		public static readonly DependencyProperty CurrencyEURProperty = DependencyProperty.Register("CurrencyEUR", typeof(bool), typeof(SettingsDialog));
 
 		public bool CurrencyEUR
 		{
-			get { return this.GetValue(CurrencyEURProperty); }
+			get { return (bool)this.GetValue(CurrencyEURProperty); }
 			set { this.SetValue(CurrencyEURProperty, value); }
 		}
 
-		public static readonly AvaloniaProperty<bool> CurrencyETHProperty = AvaloniaProperty.Register<SettingsDialog, bool>("CurrencyETH", inherits: true);
+		public static readonly DependencyProperty CurrencyETHProperty = DependencyProperty.Register("CurrencyETH", typeof(bool), typeof(SettingsDialog));
 
 		public bool CurrencyETH
 		{
-			get { return this.GetValue(CurrencyETHProperty); }
+			get { return (bool)this.GetValue(CurrencyETHProperty); }
 			set { this.SetValue(CurrencyETHProperty, value); }
 		}
 
-		public static readonly AvaloniaProperty<bool> CurrencyBNBProperty = AvaloniaProperty.Register<SettingsDialog, bool>("CurrencyBNB", inherits: true);
+		public static readonly DependencyProperty CurrencyBNBProperty = DependencyProperty.Register("CurrencyBNB", typeof(bool), typeof(SettingsDialog));
 
 		public bool CurrencyBNB
 		{
-			get { return this.GetValue(CurrencyBNBProperty); }
+			get { return (bool)this.GetValue(CurrencyBNBProperty); }
 			set { this.SetValue(CurrencyBNBProperty, value); }
 		}
 
-		public static readonly AvaloniaProperty<bool> CurrencyBTCProperty = AvaloniaProperty.Register<SettingsDialog, bool>("CurrencyBTC", inherits: true);
+		public static readonly DependencyProperty CurrencyBTCProperty = DependencyProperty.Register("CurrencyBTC", typeof(bool), typeof(SettingsDialog));
 
 		public bool CurrencyBTC
 		{
-			get { return this.GetValue(CurrencyBTCProperty); }
+			get { return (bool)this.GetValue(CurrencyBTCProperty); }
 			set { this.SetValue(CurrencyBTCProperty, value); }
 		}
-
-		public static readonly AvaloniaProperty<bool> AllowShortsProperty = AvaloniaProperty.Register<SettingsDialog, bool>("AllowShorts", inherits: true);
+		public static readonly DependencyProperty AllowShortsProperty = DependencyProperty.Register("AllowShorts", typeof(bool), typeof(SettingsDialog));
 
 		public bool AllowShorts
 		{
-			get { return this.GetValue(AllowShortsProperty); }
+			get { return (bool)this.GetValue(AllowShortsProperty); }
 			set { this.SetValue(AllowShortsProperty, value); }
 		}
-
-		public static readonly AvaloniaProperty<string> VolumeProperty = AvaloniaProperty.Register<SettingsDialog, string>("Volume", inherits: true);
+		public static readonly DependencyProperty VolumeProperty = DependencyProperty.Register("Volume", typeof(string), typeof(SettingsDialog));
 
 		public string Volume
 		{
-			get { return this.GetValue(VolumeProperty); }
+			get { return (string)this.GetValue(VolumeProperty); }
 			set { this.SetValue(VolumeProperty, value); }
 		}
 
-
-		public static readonly AvaloniaProperty<string> BollingerBandWidthProperty = AvaloniaProperty.Register<SettingsDialog, string>("BollingerBandWidth", inherits: true);
+		public static readonly DependencyProperty BollingerBandWidthProperty = DependencyProperty.Register("BollingerBandWidth", typeof(string), typeof(SettingsDialog));
 
 		public string BollingerBandWidth
 		{
-			get { return this.GetValue(BollingerBandWidthProperty); }
+			get { return (string)this.GetValue(BollingerBandWidthProperty); }
 			set { this.SetValue(BollingerBandWidthProperty, value); }
 		}
-
-		public static readonly AvaloniaProperty<string> MaxFlatCandlesProperty = AvaloniaProperty.Register<SettingsDialog, string>("MaxFlatCandles", inherits: true);
+		public static readonly DependencyProperty MaxFlatCandlesProperty = DependencyProperty.Register("MaxFlatCandles", typeof(string), typeof(SettingsDialog));
 
 		public string MaxFlatCandles
 		{
-			get { return this.GetValue(MaxFlatCandlesProperty); }
+			get { return (string)this.GetValue(MaxFlatCandlesProperty); }
 			set { this.SetValue(MaxFlatCandlesProperty, value); }
 		}
 
-
-		public static readonly AvaloniaProperty<string> MaxFlatCandleCountProperty = AvaloniaProperty.Register<SettingsDialog, string>("MaxFlatCandleCount", inherits: true);
+		public static readonly DependencyProperty MaxFlatCandleCountProperty = DependencyProperty.Register("MaxFlatCandleCount", typeof(string), typeof(SettingsDialog));
 
 		public string MaxFlatCandleCount
 		{
-			get { return this.GetValue(MaxFlatCandleCountProperty); }
+			get { return (string)this.GetValue(MaxFlatCandleCountProperty); }
 			set { this.SetValue(MaxFlatCandleCountProperty, value); }
 		}
-
-		public static readonly AvaloniaProperty<string> MaxPanicProperty = AvaloniaProperty.Register<SettingsDialog, string>("MaxPanic", inherits: true);
+		public static readonly DependencyProperty MaxPanicProperty = DependencyProperty.Register("MaxPanic", typeof(string), typeof(SettingsDialog));
 
 		public string MaxPanic
 		{
-			get { return this.GetValue(MaxPanicProperty); }
+			get { return (string)this.GetValue(MaxPanicProperty); }
 			set { this.SetValue(MaxPanicProperty, value); }
 		}
 	}

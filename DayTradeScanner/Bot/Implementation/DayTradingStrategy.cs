@@ -151,7 +151,7 @@ namespace DayTradeScanner.Bot.Implementation
 			for (int i = 0; i < _settings.MaxFlatCandleCount; ++i)
 			{
 				var candleStick = candles[bar + i];
-				if (candleStick.ConvertedVolume <= 0) flatCandles++;
+				if (candleStick.BaseCurrencyVolume <= 0) flatCandles++;
 			}
 			if (flatCandles > _settings.MaxFlatCandles) return false;
 

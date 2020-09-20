@@ -1,17 +1,17 @@
-﻿using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
-using Avalonia.Threading;
+﻿using System.Windows;
 using DayTradeScanner;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Windows.Controls;
+using System;
+using System.Linq;
 
 namespace DayTrader
 {
-    public class MainWindow : Window
-    {
+    public partial class MainWindow : Window {
+
         private Scanner _scanner;
         private Button _btnStart;
         private Button _btnDonate;
@@ -19,34 +19,35 @@ namespace DayTrader
         private MenuItem _menuItemSettings;
         private Thread _thread;
         private bool _running;
-
-        public MainWindow()
-        {
+        
+        public MainWindow() {
             DataContext = this;
             StartButton = "Start scanning";
             StatusText = "stopped...";
             Signals = new ObservableCollection<Signal>();
+
             InitializeComponent();
+            InitializeComponentCustom();
         }
 
-        private void InitializeComponent()
+        private void InitializeComponentCustom()
         {
-            AvaloniaXamlLoaderPortableXaml.Load(this);
+
             // this.AttachDevTools();
-            _btnStart = this.Find<Button>("btnStart");
+            _btnStart = (Button)FindName("btnStart");
             _btnStart.Click += btnStart_Click;
 
-            _menuItemQuit = this.Find<MenuItem>("menuItemQuit");
+            _menuItemQuit = (MenuItem)FindName("menuItemQuit");
             _menuItemQuit.Click += _btnQuit_Click;
 
-            _menuItemSettings = this.Find<MenuItem>("menuItemSettings");
+            _menuItemSettings = (MenuItem)FindName("menuItemSettings");
             _menuItemSettings.Click += menuItemSettings_Click;
 
-            _btnDonate = this.Find<Button>("btnDonate");
+            _btnDonate = (Button)FindName("btnDonate");
             _btnDonate.Click += btnDonate_Click;
         }
 
-        private void btnDonate_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+        private void btnDonate_Click(object sender, RoutedEventArgs e)
         {
             var url = "http://github.com/erwin-beckers/DayTradeScanner";
             try
@@ -71,13 +72,13 @@ namespace DayTrader
             }
         }
 
-        private void _btnQuit_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+        private void _btnQuit_Click(object sender, RoutedEventArgs e)
 		{
 			StopScanning();
             this.Close();
         }
 
-        private void menuItemSettings_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+        private void menuItemSettings_Click(object sender, RoutedEventArgs e)
 		{
 			StopScanning();
             var dlg = new SettingsDialog();
@@ -108,7 +109,7 @@ namespace DayTrader
 			
 		}
 
-        private void btnStart_Click(object sender, Avalonia.Interactivity.RoutedEventArgs e)
+        private void btnStart_Click(object sender, RoutedEventArgs e)
 		{
             if (_thread != null)
             {
@@ -126,24 +127,28 @@ namespace DayTrader
 
             SetStatusText($"initializing {settings.Exchange} with 24hr volume of {settings.Min24HrVolume} ...");
             _scanner = new Scanner(settings);
-            while (_running)
-            {
-                int idx = 0;
-                foreach (var symbol in _scanner.Symbols)
-                {
-                    idx++;
-					SetStatusText($"{settings.Exchange} scanning {symbol} ({idx}/{_scanner.Symbols.Count})...");
-                    var signal = await _scanner.ScanAsync(symbol);
-                    if (signal != null)
+            int numTimeFrames = settings.TimeFrames.Length;
+            string[] orderedTimeframes = settings.TimeFrames.OrderBy(x => Scanner.TimeframeToMinutes(x)).ToArray();
+            while (_running) {
+                foreach (string timeframe in orderedTimeframes) {
+                    int idx = 0;
+                    foreach (var symbol in _scanner.Symbols)
                     {
-                        await Dispatcher.UIThread.InvokeAsync(() =>
-                        {
-                            Signals.Insert(0, signal);
-                        });
+                        idx++;
+                        
+                        SetStatusText($"{settings.Exchange} scanning {symbol.Symbol.MarketSymbol} ({idx}/{_scanner.Symbols.Count}) on {timeframe}...");
+                        int minutes = Scanner.TimeframeToMinutes(timeframe);
+                        var signal = await _scanner.ScanAsync(symbol, minutes).ConfigureAwait(false);
+                        if (signal != null) {
+                            await Dispatcher.BeginInvoke((Action)(() => {
+                                Signals.Insert(0, signal);
+                            }));
+                        }
+                        if (!_running) break;
                     }
-	                if (!_running) break;
+                    if (!_running) break;
                 }
-				if (!_running) break;
+                if (!_running) break;
                 SetStatusText($"sleeping.");
 				Thread.Sleep(1000);
                 
@@ -159,30 +164,46 @@ namespace DayTrader
 
         private void SetStatusText(string statusTxt)
         {
-            Dispatcher.UIThread.InvokeAsync(() =>
+            Dispatcher.BeginInvoke((Action)(() =>
             {
                 StatusText = statusTxt;
-            });
+            }));
         }
 
-        public static readonly AvaloniaProperty<string> StartButtonProperty =
-        AvaloniaProperty.Register<MainWindow, string>("StartButton", inherits: true);
+        public static readonly DependencyProperty StartButtonProperty = DependencyProperty.Register("StartButton", typeof(string), typeof(MainWindow));
+
 
         public string StartButton
         {
-            get { return this.GetValue(StartButtonProperty); }
+            get { return (string)this.GetValue(StartButtonProperty); }
             set { this.SetValue(StartButtonProperty, value); }
         }
 
-        public static readonly AvaloniaProperty<string> StatusProperty =
-        AvaloniaProperty.Register<MainWindow, string>("StatusText", inherits: true);
-
+        public static readonly DependencyProperty StatusProperty = DependencyProperty.Register("StatusText", typeof(string), typeof(MainWindow));
         public string StatusText
         {
-            get { return this.GetValue(StatusProperty); }
+            get { return (string)this.GetValue(StatusProperty); }
             set { this.SetValue(StatusProperty, value); }
         }
 
         public ObservableCollection<Signal> Signals { get; set; }
-    }
+
+ 
+		private void SignalButton_Clicked(object sender, RoutedEventArgs e) {
+            Button cmd = (Button)sender;
+            if (cmd.DataContext is Signal) {
+                Signal signal = (Signal)cmd.DataContext;
+                string hypertraderURI = signal.HyperTraderURI;
+                StartHyperTrader(hypertraderURI);
+            }
+        }
+
+        private void StartHyperTrader(string uri) {
+            ProcessStartInfo psi = new ProcessStartInfo {
+                FileName = uri,
+                UseShellExecute = true
+            };
+            Process.Start(psi);
+        }
+	}
 }

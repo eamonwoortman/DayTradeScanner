@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DigitalRuby.ExchangeSharp" Version="0.4.1" />
+    <PackageReference Include="DigitalRuby.ExchangeSharp" Version="0.7.3" />
   </ItemGroup>
 
   <ItemGroup>

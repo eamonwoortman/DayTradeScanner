@@ -1,11 +1,34 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
-<Window xmlns="https://github.com/avaloniaui" Title="Settings" Width="500" Height="350">
-    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="10,10,10,10">
-        <TextBlock Text="Exchange" Grid.Row="0" Grid.Column="0" Margin="0,0,10,10" VerticalAlignment="Center" />
-        <DropDown Name="dropExchange" Grid.Row="0" Grid.Column="1"  Margin="0,0,0,10" Width="150" SelectedIndex="0" HorizontalAlignment="Left"  VerticalAlignment="Center" Items="{Binding Exchanges}" />
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:DayTrader"
+        mc:Ignorable="d" 
+        Title="Settings" Width="500" Height="450"
+        x:Class="DayTrader.SettingsDialog">
+    <Grid Margin="10,10,10,10">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+            <TextBlock Text="Exchange" Grid.Row="0" Grid.Column="0" Margin="0,0,10,10" VerticalAlignment="Center" />
+        <ComboBox Name="dropExchange" Grid.Row="0" Grid.Column="1"  Margin="0,0,0,10" Width="150" SelectedIndex="0" HorizontalAlignment="Left"  VerticalAlignment="Center" ItemsSource="{Binding Exchanges}" />
 
         <TextBlock Text="Currency" Grid.Row="1" Grid.Column="0" Margin="0,0,10,10"  VerticalAlignment="Center" />
-        <StackPanel Orientation="Horizontal" Grid.Row="1" Grid.Column="1" Gap="10"  Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
+        <StackPanel Orientation="Horizontal" Grid.Row="1" Grid.Column="1"  Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
             <CheckBox Name="cbUSD" IsChecked="{Binding CurrencyUSD, Mode=TwoWay}">USD</CheckBox>
             <CheckBox Name="cbEUR" IsChecked="{Binding CurrencyEUR, Mode=TwoWay}">EUR</CheckBox>
             <CheckBox Name="cbBTC" IsChecked="{Binding CurrencyBTC, Mode=TwoWay}">BTC</CheckBox>
@@ -14,7 +37,12 @@
         </StackPanel>
 
         <TextBlock Text="Timeframe" Grid.Row="2" Grid.Column="0" Margin="0,0,10,10" VerticalAlignment="Center" />
+        <!--
         <DropDown Name="dropTimeFrame" Grid.Row="2" Grid.Column="1"  Margin="0,0,0,10" Width="150" SelectedIndex="0" HorizontalAlignment="Left"  VerticalAlignment="Center" Items="{Binding TimeFrames}" />
+
+        -->
+        <ListBox Name="dropTimeFrame" SelectionMode="Multiple" Grid.Row="2" Grid.Column="1" Margin="0,0,0,10" Width="150" SelectedIndex="0" HorizontalAlignment="Left"  VerticalAlignment="Center" ItemsSource="{Binding TimeFrames}"/>
+
 
         <TextBlock Text="Min 24hr Volume" Grid.Row="3" Grid.Column="0" Margin="0,0,10,10"  VerticalAlignment="Center" />
         <TextBox Name="tbVolume"  Grid.Row="3" Grid.Column="1" Text="{Binding Volume, Mode=TwoWay}"  Margin="0,0,10,10"   Width="150"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
@@ -24,24 +52,24 @@
         <CheckBox Name="cbShorts" IsChecked="{Binding AllowShorts, Mode=TwoWay}" Margin="0,0,1,10"  Grid.Row="4" Grid.Column="1"></CheckBox>
 
         <TextBlock Text="Min. Bollinger bandwidth" Grid.Row="5" Grid.Column="0" Margin="0,0,10,10"  VerticalAlignment="Center" />
-        <StackPanel Orientation="Horizontal" Grid.Row="5" Grid.Column="1" Gap="10"  Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
+        <StackPanel Orientation="Horizontal" Grid.Row="5" Grid.Column="1" Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
             <TextBox Text="{Binding BollingerBandWidth, Mode=TwoWay}" Width="50"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
             <TextBlock Text="%" VerticalAlignment="Center" />
         </StackPanel>
 
         <TextBlock Text="Max flat candles" Grid.Row="6" Grid.Column="0" Margin="0,0,10,10"  VerticalAlignment="Center" />
-        <StackPanel Orientation="Horizontal" Grid.Row="6" Grid.Column="1" Gap="10"  Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
+        <StackPanel Orientation="Horizontal" Grid.Row="6" Grid.Column="1" Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
             <TextBox Text="{Binding MaxFlatCandles, Mode=TwoWay}" Width="50"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
             <TextBlock Text="/" VerticalAlignment="Center" />
             <TextBox Text="{Binding MaxFlatCandleCount, Mode=TwoWay}" Width="50"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
         </StackPanel>
 
         <TextBlock Text="Max. panic" Grid.Row="7" Grid.Column="0" Margin="0,0,10,10"  VerticalAlignment="Center" />
-        <StackPanel Orientation="Horizontal" Grid.Row="7" Grid.Column="1" Gap="10"  Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
+        <StackPanel Orientation="Horizontal" Grid.Row="7" Grid.Column="1" Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
             <TextBox Text="{Binding MaxPanic, Mode=TwoWay}" Width="50"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
             <TextBlock Text="%" VerticalAlignment="Center" />
         </StackPanel>
-         <StackPanel Orientation="Horizontal" Grid.Row="8" Grid.Column="1" Gap="10"  Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
+         <StackPanel Orientation="Horizontal" Grid.Row="8" Grid.Column="1" Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
         <Button Name="btnReset" Width="100" HorizontalAlignment="Right"  Margin="0,0,10,10"  VerticalAlignment="Center">Reset</Button>
         <Button Name="btnSave" Width="100" HorizontalAlignment="Right"  Margin="0,0,10,10"  VerticalAlignment="Center">Save</Button>
         </StackPanel>

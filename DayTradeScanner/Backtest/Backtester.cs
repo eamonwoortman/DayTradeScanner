@@ -29,7 +29,7 @@ namespace DayTradeScanner
 			{
 				try
 				{
-					var candles = api.GetCandles(symbol, 5 * 60, startDate, DateTime.Now, 1000).ToList();
+					var candles = api.GetCandlesAsync(symbol, 5 * 60, startDate, DateTime.Now, 1000).Result.ToList();
 					if (candles == null) break;
 					if (candles.Count == 0) break;
 					allCandles.AddRange(candles);
