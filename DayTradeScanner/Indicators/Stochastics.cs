@@ -21,8 +21,12 @@ namespace DayTradeScanner
 			var prices = candles.Skip(start).Take(length).ToList();
 			var lowest = prices.Min(e => e.LowPrice);
 			var highest = prices.Max(e => e.HighPrice);
+			var denominator = (highest - lowest);
+			if (denominator == 0) {
+				return 0m;
+			} 
 			var closePrice = prices[0].ClosePrice;
-			return 100m * ((closePrice - lowest) / (highest - lowest));
+			return 100m * ((closePrice - lowest) / denominator);
 		}
 
 		public decimal K { get; internal set; }
