@@ -135,10 +135,12 @@ namespace DayTrader
                     foreach (var symbol in _scanner.Symbols)
                     {
                         idx++;
-                        
-                        SetStatusText($"{settings.Exchange} scanning {symbol.Symbol.MarketSymbol} ({idx}/{_scanner.Symbols.Count}) on {timeframe}...");
                         int minutes = Scanner.TimeframeToMinutes(timeframe);
-                        var signal = await _scanner.ScanAsync(symbol, minutes).ConfigureAwait(false);
+                        SetStatusText($"{settings.Exchange} scanning {symbol.Symbol.MarketSymbol} ({idx}/{_scanner.Symbols.Count}) on {timeframe}...");
+                        var signal = await _scanner.ScanAsync(symbol, minutes);
+                        if (!_running) {
+                            return;
+                        }
                         if (signal != null) {
                             await Dispatcher.BeginInvoke((Action)(() => {
                                 Signals.Insert(0, signal);
