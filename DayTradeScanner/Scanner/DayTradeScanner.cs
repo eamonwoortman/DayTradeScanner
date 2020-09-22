@@ -78,6 +78,8 @@ namespace DayTradeScanner
                     return;
             }
 
+            _api.RateLimit = new RateGate(800, TimeSpan.FromSeconds(60d));
+
             FindCoinsWithEnoughVolume();
         }
 
