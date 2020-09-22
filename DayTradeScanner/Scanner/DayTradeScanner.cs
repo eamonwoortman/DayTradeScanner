@@ -96,7 +96,7 @@ namespace DayTradeScanner
             // for each symbol
             foreach (var metadata in allSymbolsMeta)
             {
-                string symbol = metadata.MarketSymbol;
+                string symbol = metadata.MarketSymbol.ToUpperInvariant();
                 if (!IsValidCurrency(symbol))
                 {
                     // ignore, symbol has wrong currency
