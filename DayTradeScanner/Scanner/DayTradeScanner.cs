@@ -153,7 +153,7 @@ namespace DayTradeScanner
 				return _symbols;
 			}
 		}
-        
+
 
         public string GetHyperTradeURI(ExchangeMarket symbol, int minutes) {
             string urlSymbol = $"{symbol.BaseCurrency}-{symbol.QuoteCurrency}";
@@ -171,8 +171,8 @@ namespace DayTradeScanner
             try
             {
                 // download the new candles
-				var candles = (await _api.GetCandlesAsync(symbol.Symbol.MarketSymbol, 60 * minutes, DateTime.Now.AddMinutes(-5 * 50))).Reverse().ToList();
-				candles = AddMissingCandles(candles, minutes);
+                var candles = (await _api.GetCandlesAsync(symbol.Symbol.MarketSymbol, 60 * minutes, DateTime.Now.AddMinutes(-5 * 50))).Reverse().ToList();
+                candles = AddMissingCandles(candles, minutes);
                 // scan candles for buy/sell signal
                 TradeType tradeType = TradeType.Long;
 				var strategy = new DayTradingStrategy(symbol.Symbol.MarketSymbol, _settings);
