@@ -198,7 +198,7 @@ namespace DayTradeScanner
             }
             catch (Exception ex)
             {
-                Trace.WriteLine(ex);
+				System.Diagnostics.Trace.WriteLine(ex);
             }
             return null;
         }
