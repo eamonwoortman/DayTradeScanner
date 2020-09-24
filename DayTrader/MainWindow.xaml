@@ -4,7 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DayTrader"
         mc:Ignorable="d" 
-        Title="Daytrade scanner v1.3 (c) 2018 Erwin Beckers"  Width="900" Height="480"
+        Title="Daytrade scanner v2.1 (c) 2018 Erwin Beckers"  Width="900" Height="480"
         x:Class="DayTrader.MainWindow">
     <Grid>
         <Grid.ColumnDefinitions>
@@ -37,86 +37,27 @@
             <Button Name="btnStart"  Content="{Binding StartButton}" Grid.Column="0" />
             <Button Name="btnDonate" Content="Donate"  Grid.Column="2" />
         </Grid>
-
-        <ListBox Grid.Row="2" Margin="5,26,0,0" ItemsSource="{Binding Signals}" HorizontalContentAlignment="Stretch">
-            <ListBox.Template>
-                <ControlTemplate>
-                    <DockPanel LastChildFill="True">
-                        <Grid DockPanel.Dock="Top" Height="30" Background="LightGray">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="110"></ColumnDefinition>
-                                <ColumnDefinition Width="60"></ColumnDefinition>
-                                <ColumnDefinition Width="60"></ColumnDefinition>
-                                <ColumnDefinition Width="80"></ColumnDefinition>
-                                <ColumnDefinition Width="90"></ColumnDefinition>
-                                <ColumnDefinition Width="130"></ColumnDefinition>
-                                <ColumnDefinition Width="90"></ColumnDefinition>
-                                <ColumnDefinition Width="130"></ColumnDefinition>
-                                <ColumnDefinition Width="80"></ColumnDefinition>
-                            </Grid.ColumnDefinitions>
-                            <Label Grid.Column="0">Date</Label>
-                            <Label Grid.Column="1">Symbol</Label>
-                            <Label Grid.Column="2">Trade</Label>
-                            <Label Grid.Column="3">Timeframe</Label>
-                            <Label Grid.Column="4">QuoteCurrency</Label>
-                            <Label Grid.Column="5">QuoteCurrencyVolume</Label>
-                            <Label Grid.Column="6">BaseCurrency</Label>
-                            <Label Grid.Column="7">BaseCurrencyVolume</Label>
-                            <Label Grid.Column="8">Action</Label>
-                        </Grid>
-                        <ItemsPresenter></ItemsPresenter>
-                    </DockPanel>
-                </ControlTemplate>
-            </ListBox.Template>
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <Grid Margin="0,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="110"></ColumnDefinition>
-                            <ColumnDefinition Width="60"></ColumnDefinition>
-                            <ColumnDefinition Width="60"></ColumnDefinition>
-                            <ColumnDefinition Width="80"></ColumnDefinition>
-                            <ColumnDefinition Width="90"></ColumnDefinition>
-                            <ColumnDefinition Width="130"></ColumnDefinition>
-                            <ColumnDefinition Width="90"></ColumnDefinition>
-                            <ColumnDefinition Width="130"></ColumnDefinition>
-                            <ColumnDefinition Width="80"></ColumnDefinition>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="{Binding Date}" Grid.Column="0" />
-                        <TextBlock Text="{Binding Symbol}" Grid.Column="1" />
-                        <TextBlock Text="{Binding Trade}" Grid.Column="2"/>
-                        <TextBlock Text="{Binding TimeFrame}" Grid.Column="3" />
-                        <TextBlock Text="{Binding Volume.QuoteCurrency}" Grid.Column="4"/>
-                        <TextBlock Text="{Binding Volume.QuoteCurrencyVolume}" Grid.Column="5"/>
-                        <TextBlock Text="{Binding Volume.BaseCurrency}" Grid.Column="6"/>
-                        <TextBlock Text="{Binding Volume.BaseCurrencyVolume}" Grid.Column="7"/>
-
-                        <!-- 
-                            		public string QuoteCurrency { get; set; }
-		public decimal QuoteCurrencyVolume { get; set; }
-		public string BaseCurrency { get; set; }
-		public decimal BaseCurrencyVolume { get; set; }
-                            -->
-                        <Button Content="Open" Grid.Column="8" Click="SignalButton_Clicked"/>
-                    </Grid>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
         
-        <!--
-        <ListBox Grid.Row="2" Margin="5,0,0,0" ItemsSource="{Binding Signals}">
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="{Binding Date}" Width="100" />
-                        <TextBlock Text="{Binding Symbol}" Width="100" />
-                        <TextBlock Text="{Binding Trade}" Width="100" />
-                        <TextBlock Text="{Binding Timeframe}" Width="100" />
-                    </StackPanel>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
-        -->
+        <DataGrid Name = "dataGrid" AlternatingRowBackground = "LightBlue"  
+         AlternationCount = "2" AutoGenerateColumns="False" IsReadOnly="True"  ItemsSource="{Binding Signals}" Grid.Row="2" Margin="5,26,0,0">
+
+            <DataGrid.Columns>
+                <DataGridTextColumn Header = "Date" Binding = "{Binding Date}" Width="100" />
+                <DataGridTextColumn Header = "Symbol" Binding = "{Binding Symbol}" Width="60"/>
+                <DataGridTextColumn Header = "Trade" Binding = "{Binding Trade}" Width="80"/>
+                <DataGridTextColumn Header = "TimeFrame" Binding = "{Binding TimeFrame}" Width="90"/>
+                
+                <DataGridTemplateColumn Header="Action">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="Open" Grid.Column="8" Click="SignalButton_Clicked"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+
+        </DataGrid>
+
         <StackPanel Grid.Row="3" Orientation="Horizontal" Background="#cccccc">
             <TextBlock VerticalAlignment="Center" Margin="5,5,5,5" Text="{Binding StatusText}">
             </TextBlock>
