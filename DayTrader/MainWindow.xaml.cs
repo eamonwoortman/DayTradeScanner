@@ -7,6 +7,7 @@ using System.Threading;
 using System.Windows.Controls;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace DayTrader
 {
@@ -121,6 +122,28 @@ namespace DayTrader
             }
         }
 
+        private async Task ScanSymbols(string[] orderedTimeframes, Settings settings) {
+            foreach (string timeframe in orderedTimeframes) {
+                int idx = 0;
+                foreach (var symbol in _scanner.Symbols) {
+                    idx++;
+                    int minutes = Scanner.TimeframeToMinutes(timeframe);
+                    SetStatusText($"{settings.Exchange} scanning {symbol.Symbol.MarketSymbol} ({idx}/{_scanner.Symbols.Count}) on {timeframe}...");
+                    var signal = await _scanner.ScanAsync(symbol, minutes);
+                    if (!_running) {
+                        return;
+                    }
+                    if (signal != null) {
+                        await Dispatcher.BeginInvoke((Action)(() => {
+                            Signals.Insert(0, signal);
+                        }));
+                    }
+                    if (!_running) break;
+                }
+                if (!_running) break;
+            }
+        }
+
         private async void DoScan()
 		{
             var settings = SettingsStore.Load();
@@ -130,26 +153,17 @@ namespace DayTrader
             int numTimeFrames = settings.TimeFrames.Length;
             string[] orderedTimeframes = settings.TimeFrames.OrderBy(x => Scanner.TimeframeToMinutes(x)).ToArray();
             while (_running) {
-                foreach (string timeframe in orderedTimeframes) {
-                    int idx = 0;
-                    foreach (var symbol in _scanner.Symbols)
-                    {
-                        idx++;
-                        int minutes = Scanner.TimeframeToMinutes(timeframe);
-                        SetStatusText($"{settings.Exchange} scanning {symbol.Symbol.MarketSymbol} ({idx}/{_scanner.Symbols.Count}) on {timeframe}...");
-                        var signal = await _scanner.ScanAsync(symbol, minutes);
-                        if (!_running) {
-                            return;
-                        }
-                        if (signal != null) {
-                            await Dispatcher.BeginInvoke((Action)(() => {
-                                Signals.Insert(0, signal);
-                            }));
-                        }
-                        if (!_running) break;
-                    }
-                    if (!_running) break;
+
+                if (_scanner.ShouldFetchTrendCandles()) {
+                    SetStatusText($"Fetching trend candles.");
+                    await _scanner.FetchTrendCandles();
+                    _scanner.CalculateSymbolTrends();
+                    Thread.Sleep(1000);
+                } else {
+                    await ScanSymbols(orderedTimeframes, settings);
+                    _scanner.CalculateSymbolTrends();
                 }
+
                 if (!_running) break;
                 SetStatusText($"sleeping.");
 				Thread.Sleep(1000);

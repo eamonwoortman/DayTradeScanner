@@ -46,6 +46,8 @@
                 <DataGridTextColumn Header = "Symbol" Binding = "{Binding Symbol}" Width="60"/>
                 <DataGridTextColumn Header = "Trade" Binding = "{Binding Trade}" Width="80"/>
                 <DataGridTextColumn Header = "TimeFrame" Binding = "{Binding TimeFrame}" Width="90"/>
+                <DataGridTextColumn Header = "Trend 4H" Binding = "{Binding FourHourTrend}" Width="60"/>
+                <DataGridTextColumn Header = "Trend 1H" Binding = "{Binding OneHourTrend}" Width="60"/>
                 
                 <DataGridTemplateColumn Header="Action">
                     <DataGridTemplateColumn.CellTemplate>

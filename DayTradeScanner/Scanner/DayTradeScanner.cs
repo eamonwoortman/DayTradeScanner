@@ -1,4 +1,5 @@
-﻿using DayTradeScanner.Bot.Implementation;
+﻿using Avalonia.Controls;
+using DayTradeScanner.Bot.Implementation;
 using ExchangeSharp;
 using System;
 using System.Collections.Generic;
@@ -7,9 +8,22 @@ using System.Threading.Tasks;
 
 namespace DayTradeScanner
 {
+
+    public struct SymbolTrend {
+        public int TimeframeInHours;
+        public decimal Trend;
+        public MarketCandle Candle;
+        public SymbolTrend(int timeframe) {
+            TimeframeInHours = timeframe;
+            Trend = 0M;
+            Candle = null;
+        }
+	}
+
     public class ExtendedSymbol {
         public ExchangeMarket Symbol;
-        public ExchangeTicker Ticker; 
+        public ExchangeTicker Ticker;
+        public SymbolTrend[] Trends;
     }
     public class Scanner
     {
@@ -118,14 +132,47 @@ namespace DayTradeScanner
                     continue;
                 }
 
+                SymbolTrend fourHourTrend = new SymbolTrend(4);
+                SymbolTrend oneHourTrend = new SymbolTrend(1); 
+
                 // add to list
                 ExtendedSymbol extendedSymbol = new ExtendedSymbol() {
                     Symbol = metadata,
-                    Ticker = ticker
+                    Ticker = ticker,
+                    Trends = new SymbolTrend[2]
                 };
+
+                extendedSymbol.Trends[0] = fourHourTrend;
+                extendedSymbol.Trends[1] = oneHourTrend;
+
                 _symbols.Add(extendedSymbol);
             }
             _symbols = _symbols.OrderBy(e => e.Symbol.MarketSymbol).ToList();
+        }
+
+        private MarketCandle CalculateFourHourCandle(List<MarketCandle> candles) {
+            MarketCandle lastCandle = candles[0];
+            MarketCandle firstCandle = candles[candles.Count - 1];
+            MarketCandle fourHourCandle = new MarketCandle();
+            fourHourCandle.BaseCurrencyVolume = firstCandle.BaseCurrencyVolume;
+            fourHourCandle.ExchangeName = firstCandle.ExchangeName;
+            fourHourCandle.Name = firstCandle.Name;
+            fourHourCandle.PeriodSeconds = 60 * 60;
+            fourHourCandle.Timestamp = candles.Last().Timestamp;
+            fourHourCandle.ClosePrice = lastCandle.ClosePrice;
+            fourHourCandle.OpenPrice = firstCandle.OpenPrice;
+            fourHourCandle.HighPrice = candles.Average(x => x.HighPrice);
+            fourHourCandle.LowPrice = candles.Average(x => x.LowPrice);
+            fourHourCandle.QuoteCurrencyVolume = candles.Average(x => x.QuoteCurrencyVolume);
+            fourHourCandle.WeightedAverage = candles.Average(x => x.WeightedAverage);
+            return fourHourCandle;
+        }
+
+        private async Task GetSymbolTrendCandles(ExchangeMarket symbol, ref SymbolTrend fourHourTrend, ref SymbolTrend oneHourTrend) {
+            var candles = (await _api.GetCandlesAsync(symbol.MarketSymbol, 60 * 60, DateTime.Now.AddHours(-4), null, 4)).Reverse().ToList();
+            var firstCandle = candles.FirstOrDefault();
+            oneHourTrend.Candle = firstCandle;
+            fourHourTrend.Candle = CalculateFourHourCandle(candles);
         }
 
         /// <summary>
@@ -161,12 +208,46 @@ namespace DayTradeScanner
             return $"hypertrader://{exchange}/{urlSymbol}/{minutes}";
         }
 
+        private DateTime nextFetchCandlesTime;
+        public bool ShouldFetchTrendCandles() {
+            if (DateTime.Now > nextFetchCandlesTime) {
+                return true;
+			}
+            return false;
+		}
+        public async Task FetchTrendCandles() {
+            foreach(ExtendedSymbol symbol in _symbols) {
+                await GetSymbolTrendCandles(symbol.Symbol, ref symbol.Trends[0], ref symbol.Trends[1]);
+			}
 
-        /// <summary>
-        /// Performs a scan for all filtered symbols
-        /// </summary>
-        /// <returns></returns>
-        public async Task<Signal> ScanAsync(ExtendedSymbol symbol, int minutes)
+            // schedule the next time
+            SymbolTrend firstTrend = _symbols[0].Trends[0];
+            MarketCandle candle = firstTrend.Candle;
+            nextFetchCandlesTime = candle.Timestamp.AddHours(firstTrend.TimeframeInHours);
+        }
+
+
+
+        public void CalculateSymbolTrends() {
+            foreach (ExtendedSymbol symbol in _symbols) {
+				CalculateSymbolTrend(symbol);
+			}
+		}
+
+		private static void CalculateSymbolTrend(ExtendedSymbol symbol) {
+			for (int i = 0; i < symbol.Trends.Length; i++) {
+				// ticker, candle
+				decimal diff = symbol.Ticker.Last - symbol.Trends[i].Candle.ClosePrice;
+				decimal trendPercentage = diff / (symbol.Trends[i].Candle.ClosePrice / 100M);
+				symbol.Trends[i].Trend = trendPercentage;
+			}
+		}
+
+		/// <summary>
+		/// Performs a scan for all filtered symbols
+		/// </summary>
+		/// <returns></returns>
+		public async Task<Signal> ScanAsync(ExtendedSymbol symbol, int minutes)
         {
             try
             {
@@ -175,6 +256,7 @@ namespace DayTradeScanner
                 candles = AddMissingCandles(candles, minutes);
                 // scan candles for buy/sell signal
                 TradeType tradeType = TradeType.Long;
+
 				var strategy = new DayTradingStrategy(symbol.Symbol.MarketSymbol, _settings);
                 if (strategy.IsValidEntry(candles, 0, out tradeType))
                 {
@@ -184,6 +266,9 @@ namespace DayTradeScanner
 					// got buy/sell signal.. write to console
 					Console.Beep();
 
+                    symbol.Ticker.Last = candles[0].ClosePrice;
+                    CalculateSymbolTrend(symbol);
+
                     ExchangeVolume volume = symbol.Ticker.Volume;
 
                     return new Signal() {
@@ -192,7 +277,9 @@ namespace DayTradeScanner
                         Date = $"{candles[0].Timestamp.AddHours(2):dd-MM-yyyy HH:mm}",
                         TimeFrame = $"{minutes} min",
                         HyperTraderURI = GetHyperTradeURI(symbol.Symbol, minutes),
-                        Volume = volume
+                        Volume = volume,
+                        FourHourTrend = symbol.Trends[0],
+                        OneHourTrend = symbol.Trends[1]
                     };
                 }
             }
