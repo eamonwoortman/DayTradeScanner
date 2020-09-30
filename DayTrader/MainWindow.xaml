@@ -4,8 +4,11 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DayTrader"
         mc:Ignorable="d" 
-        Title="Daytrade scanner v2.1 (c) 2018 Erwin Beckers"  Width="900" Height="480"
+        Title="Daytrade scanner v2.3"  Width="900" Height="480"
         x:Class="DayTrader.MainWindow">
+    <Window.Resources>
+        <local:PercentageToBrushConverter x:Key="brushConverter"/>
+    </Window.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
@@ -16,6 +19,7 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
+        
         <StackPanel Orientation="Horizontal" Background="#cccccc">
             <Menu Margin="5,5,5,5">
                 <MenuItem Header="File">
@@ -37,32 +41,147 @@
             <Button Name="btnStart"  Content="{Binding StartButton}" Grid.Column="0" />
             <Button Name="btnDonate" Content="Donate"  Grid.Column="2" />
         </Grid>
+
+        <Grid Grid.Row="2" Margin="5,5,0,0">
+            <TabControl>
+                <TabItem Header="Signals">
+                    <DataGrid Name = "dataGrid" AlternatingRowBackground = "LightBlue"  
+         AlternationCount = "2" AutoGenerateColumns="False" IsReadOnly="True"  ItemsSource="{Binding Signals}" SelectionUnit="Cell">
+
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header = "Date" Binding = "{Binding Date}" Width="100" />
+                            <DataGridTextColumn Header = "Symbol" Binding = "{Binding Symbol}" Width="60"/>
+                            <DataGridTextColumn Header = "Trade" Binding = "{Binding Trade}" Width="80"/>
+                            <DataGridTextColumn Header = "TimeFrame" Binding = "{Binding TimeFrame}" Width="90"/>
+                            <DataGridTextColumn Header = "BB (%)" Binding = "{Binding BBBandwidth}" Width="60"/>
+
+                            <!--
+                            <DataGridTextColumn Header = "Trend 4H" Binding = "{Binding FourHourTrend}" Width="60"/>
+                            <DataGridTextColumn Header = "Trend 1H" Binding = "{Binding OneHourTrend}" Width="60"/>
+                            -->
+                            <DataGridTextColumn Header = "4H Trend %" Binding = "{Binding FourHourTrend}" Width="60">
+                                <DataGridTextColumn.CellStyle>
+                                    <Style TargetType="{x:Type DataGridCell}">
+                                        <Setter Property="Background" Value="{Binding FourHourBrush, UpdateSourceTrigger=PropertyChanged}" />
+                                    </Style>
+                                </DataGridTextColumn.CellStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header = "1H Trend %" Binding = "{Binding OneHourTrend}" Width="60">
+                                <DataGridTextColumn.CellStyle>
+                                    <Style TargetType="{x:Type DataGridCell}">
+                                        <Setter Property="Background" Value="{Binding OneHourBrush, UpdateSourceTrigger=PropertyChanged}" />
+                                    </Style>
+                                </DataGridTextColumn.CellStyle>
+                            </DataGridTextColumn>
+                            <DataGridTemplateColumn Header="Action">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="Open" Grid.Column="8" Click="SignalButton_Clicked"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+
+                    </DataGrid>
+                </TabItem>
+                <TabItem Header="Trends">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+
+                        <StackPanel Orientation="Horizontal" Grid.Row="0">
+                            <Label Content="Global 4H Trend." />
+                            <Label Content="{Binding FourHourTrendText}" ContentStringFormat="{}{00:P2}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Grid.Row="1">
+                            <Label Content="Global 1H Trend." />
+                            <Label Content="{Binding OneHourTrendText}" ContentStringFormat="{}{00:P2}" />
+                        </StackPanel>
+
+                        <DataGrid Name = "trendDataGrid" 
+             AlternationCount = "2" AutoGenerateColumns="False" IsReadOnly="True"  ItemsSource="{Binding Symbols}" ScrollViewer.VerticalScrollBarVisibility="Visible" Grid.Row="2">
+
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header = "Symbol" Binding = "{Binding Symbol.MarketSymbol}" Width="80"/>
+                                <!--
+                                <DataGridTextColumn Header = "4H Date" Binding = "{Binding Trends[0].Candle.Timestamp}" Width="60"/>
+                                <DataGridTextColumn Header = "4H Open" Binding = "{Binding Trends[0].Candle.OpenPrice}" Width="60"/>
+                                <DataGridTextColumn Header = "4H Close" Binding = "{Binding Trends[0].Candle.ClosePrice}" Width="60"/>
+                                <DataGridTextColumn Header = "4H Trend" Binding = "{Binding Trends[0].Trend}" Width="60"/>
+                                -->
+                                
+                                
+                                <DataGridTextColumn Header = "4H Trend %" Binding = "{Binding FourHourTrend}" Width="60">
+                                    <DataGridTextColumn.CellStyle>
+                                        <Style TargetType="{x:Type DataGridCell}">
+                                            <Setter Property="Background" Value="{Binding FourHourBrush, UpdateSourceTrigger=PropertyChanged}" />
+                                        </Style>
+                                    </DataGridTextColumn.CellStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header = "1H Trend %" Binding = "{Binding OneHourTrend}" Width="60">
+                                    <DataGridTextColumn.CellStyle>
+                                        <Style TargetType="{x:Type DataGridCell}">
+                                            <Setter Property="Background" Value="{Binding OneHourBrush, UpdateSourceTrigger=PropertyChanged}" />
+                                        </Style>
+                                    </DataGridTextColumn.CellStyle>
+                                </DataGridTextColumn>
+                                <!--
+                                <DataGridTextColumn Header = "4H Trend %" Binding = "{Binding FourHourTrendView.TrendString}" Width="60">
+                                    <DataGridTextColumn.CellStyle>
+                                        <Style TargetType="{x:Type DataGridCell}">
+                                            <Setter Property="Background" Value="{Binding FourHourTrendView.TrendBrush, UpdateSourceTrigger=PropertyChanged}" />
+                                        </Style>
+                                    </DataGridTextColumn.CellStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header = "1H Trend %" Binding = "{Binding OneHourTrendView.TrendString}" Width="60">
+                                    <DataGridTextColumn.CellStyle>
+                                        <Style TargetType="{x:Type DataGridCell}">
+                                            <Setter Property="Background" Value="{Binding OneHourTrendView.TrendBrush, UpdateSourceTrigger=PropertyChanged}" />
+                                        </Style>
+                                    </DataGridTextColumn.CellStyle>
+                                </DataGridTextColumn>
+                                -->
+                                <!--
+                                <DataGridTextColumn Header = "1H Trend %" Binding = "{Binding Trends[1].Trend, StringFormat={}{00:P}}" Width="60">
+                                    <DataGridTextColumn.CellStyle>
+                                        <Style TargetType="{x:Type DataGridCell}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Content.RawText, Converter={StaticResource converter}, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="True">
+                                                    <Setter Property="Background" Value="LimeGreen" />
+                                                    <Setter Property="Foreground" Value="Black" />
+                                                </DataTrigger>
+
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Content.Text, Converter={StaticResource converter}, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}" Value="False">
+                                                    <Setter Property="Background" Value="DarkOrange" />
+                                                    <Setter Property="Foreground" Value="Black" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGridTextColumn.CellStyle>
+                                </DataGridTextColumn>
+                            -->
+                            </DataGrid.Columns>
+
+                        </DataGrid>
+                    </Grid>
+                </TabItem>
+
+            </TabControl>
+
+
+        </Grid>
         
-        <DataGrid Name = "dataGrid" AlternatingRowBackground = "LightBlue"  
-         AlternationCount = "2" AutoGenerateColumns="False" IsReadOnly="True"  ItemsSource="{Binding Signals}" Grid.Row="2" Margin="5,26,0,0">
-
-            <DataGrid.Columns>
-                <DataGridTextColumn Header = "Date" Binding = "{Binding Date}" Width="100" />
-                <DataGridTextColumn Header = "Symbol" Binding = "{Binding Symbol}" Width="60"/>
-                <DataGridTextColumn Header = "Trade" Binding = "{Binding Trade}" Width="80"/>
-                <DataGridTextColumn Header = "TimeFrame" Binding = "{Binding TimeFrame}" Width="90"/>
-                <DataGridTextColumn Header = "Trend 4H" Binding = "{Binding FourHourTrend}" Width="60"/>
-                <DataGridTextColumn Header = "Trend 1H" Binding = "{Binding OneHourTrend}" Width="60"/>
-                
-                <DataGridTemplateColumn Header="Action">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <Button Content="Open" Grid.Column="8" Click="SignalButton_Clicked"/>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-            </DataGrid.Columns>
-
-        </DataGrid>
-
         <StackPanel Grid.Row="3" Orientation="Horizontal" Background="#cccccc">
             <TextBlock VerticalAlignment="Center" Margin="5,5,5,5" Text="{Binding StatusText}">
             </TextBlock>
         </StackPanel>
     </Grid>
+
 </Window>

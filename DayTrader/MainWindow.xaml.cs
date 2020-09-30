@@ -8,9 +8,70 @@ using System.Windows.Controls;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Windows.Data;
+using System.Globalization;
+using System.Windows.Media;
 
 namespace DayTrader
 {
+    public static class ColorHelper
+    {
+        public static Color Lerp(Color from, Color to, decimal weight)
+        {
+            Color startColor = from;
+            Color endColor = to;
+
+            return Color.FromRgb(
+                (byte)Math.Round(startColor.R * (1 - weight) + endColor.R * weight),
+                (byte)Math.Round(startColor.G * (1 - weight) + endColor.G * weight),
+                (byte)Math.Round(startColor.B * (1 - weight) + endColor.B * weight));
+
+        }
+    }
+    public class PercentageToBrushConverter : IValueConverter
+    {
+        static readonly Color RedColor = Color.FromRgb(244, 67, 54);
+        static readonly Color GreenColor = Color.FromRgb(0, 200, 83);
+        static readonly Color Black = Color.FromRgb(0, 0, 0);
+        static readonly Color White = Color.FromRgb(255, 255, 255);
+
+        public static SolidColorBrush GetBrushFromPercentage(decimal percentage)
+        {
+            decimal strength = Math.Min(Math.Abs(percentage) / 2m, 1);
+            Color brushColor = new Color();
+            if (percentage < 0)
+            {
+                brushColor = RedColor;
+            }
+            else
+            {
+                brushColor = GreenColor;
+            }
+            Color lerpedColor = ColorHelper.Lerp(White, brushColor, strength);
+            return new SolidColorBrush(lerpedColor);
+        }
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            string percentageString = (string)value;
+            if (string.IsNullOrEmpty(percentageString))
+            {
+                return SystemColors.AppWorkspaceColor;
+            }
+
+            string decimalString = percentageString.Split("%")[0];
+            decimal decimalValue = System.Convert.ToDecimal(decimalString);
+            return GetBrushFromPercentage(decimalValue);
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new InvalidOperationException("NumberToBooleanConverter can only be used OneWay.");
+        }
+    }
+
+
     public partial class MainWindow : Window {
 
         private Scanner _scanner;
@@ -25,7 +86,8 @@ namespace DayTrader
             DataContext = this;
             StartButton = "Start scanning";
             StatusText = "stopped...";
-            Signals = new ObservableCollection<Signal>();
+            Signals = new ObservableCollection<SignalView>();
+            Symbols = new ObservableCollection<SymbolView>();
 
             InitializeComponent();
             InitializeComponentCustom();
@@ -135,7 +197,7 @@ namespace DayTrader
                     }
                     if (signal != null) {
                         await Dispatcher.BeginInvoke((Action)(() => {
-                            Signals.Insert(0, signal);
+                            Signals.Insert(0, new SignalView(signal));
                         }));
                     }
                     if (!_running) break;
@@ -144,24 +206,79 @@ namespace DayTrader
             }
         }
 
+        private async Task<bool> FetchTrendCandles(Settings settings)
+        {
+            int idx = 0;
+            Task[] tasks = new Task[_scanner.Symbols.Count];
+            bool wasSuccesful = true;
+            foreach (var symbol in _scanner.Symbols)
+            {
+                Task task = Task.Run(async () => { 
+                    SetStatusText($"{settings.Exchange} scanning trend candles for: {symbol.Symbol.MarketSymbol} ({idx + 1}/{_scanner.Symbols.Count})...");
+
+                    bool gotCandles = await _scanner.GetSymbolTrendCandles(symbol);
+                    if (!gotCandles) // retry one more time
+                    {
+                        gotCandles = await _scanner.GetSymbolTrendCandles(symbol);
+                    }
+                    if (!gotCandles)
+                    {
+                        wasSuccesful = false;
+                    }
+                });
+                tasks[idx] = task;
+                idx++;
+                if (!_running) break;
+            }
+            await Task.WhenAll(tasks);
+            _scanner.FinalizeTrendCandlesLookup(wasSuccesful);
+            return wasSuccesful;
+        }
+
+        private async Task FillTrendSymbols()
+        {
+            await Dispatcher.BeginInvoke((Action)(() => {
+                Symbols.Clear();
+                foreach(ExtendedSymbol extendedSymbol in _scanner.Symbols)
+                {
+                    Symbols.Add(new SymbolView(extendedSymbol));
+                }
+            }));
+        }
+
+        private void UpdateTrendControls()
+        {
+            Dispatcher.BeginInvoke((Action)(() =>
+            {
+                trendDataGrid.Items.Refresh();
+                OneHourTrendText = _scanner.OneHourTrend;
+                FourHourTrendText = _scanner.FourHourTrend;
+            }));
+        }
+
         private async void DoScan()
 		{
             var settings = SettingsStore.Load();
 
             SetStatusText($"initializing {settings.Exchange} with 24hr volume of {settings.Min24HrVolume} ...");
             _scanner = new Scanner(settings);
+            await FillTrendSymbols();
+
             int numTimeFrames = settings.TimeFrames.Length;
             string[] orderedTimeframes = settings.TimeFrames.OrderBy(x => Scanner.TimeframeToMinutes(x)).ToArray();
             while (_running) {
 
                 if (_scanner.ShouldFetchTrendCandles()) {
                     SetStatusText($"Fetching trend candles.");
-                    await _scanner.FetchTrendCandles();
-                    _scanner.CalculateSymbolTrends();
+                    bool gotCandles = await FetchTrendCandles(settings);
+                    if (gotCandles)
+                    {
+                        _scanner.CalculateSymbolTrends();
+                        UpdateTrendControls();
+                    }
                     Thread.Sleep(1000);
                 } else {
                     await ScanSymbols(orderedTimeframes, settings);
-                    _scanner.CalculateSymbolTrends();
                 }
 
                 if (!_running) break;
@@ -202,13 +319,29 @@ namespace DayTrader
             set { this.SetValue(StatusProperty, value); }
         }
 
-        public ObservableCollection<Signal> Signals { get; set; }
+        public ObservableCollection<SignalView> Signals { get; set; }
+            
+        public ObservableCollection<SymbolView> Symbols { get; set; }
 
- 
-		private void SignalButton_Clicked(object sender, RoutedEventArgs e) {
+        public static readonly DependencyProperty FourHourTrendProperty = DependencyProperty.Register("FourHourTrendText", typeof(decimal), typeof(MainWindow));
+        public decimal FourHourTrendText
+        {
+            get { return (decimal)this.GetValue(FourHourTrendProperty); }
+            set { this.SetValue(FourHourTrendProperty, value); }
+        }
+
+        public static readonly DependencyProperty OneHourTrendProperty = DependencyProperty.Register("OneHourTrendText", typeof(decimal), typeof(MainWindow));
+        public decimal OneHourTrendText
+        {
+            get { return (decimal)this.GetValue(OneHourTrendProperty); }
+            set { this.SetValue(OneHourTrendProperty, value); }
+        }
+
+
+        private void SignalButton_Clicked(object sender, RoutedEventArgs e) {
             Button cmd = (Button)sender;
-            if (cmd.DataContext is Signal) {
-                Signal signal = (Signal)cmd.DataContext;
+            if (cmd.DataContext is SignalView) {
+                SignalView signal = (SignalView)cmd.DataContext;
                 string hypertraderURI = signal.HyperTraderURI;
                 StartHyperTrader(hypertraderURI);
             }
@@ -222,4 +355,74 @@ namespace DayTrader
             Process.Start(psi);
         }
 	}
+
+    public class TrendView
+    {
+        public SolidColorBrush TrendBrush { get; private set; }
+        public string TrendString { get; private set; }
+
+        public TrendView(SymbolTrend trend)
+        {
+            TrendBrush = PercentageToBrushConverter.GetBrushFromPercentage(trend.TrendRaw);
+            TrendString = string.Format("{00:P2}", trend.Trend);
+        }
+    }
+
+    public class OldTrendView
+    {
+        public SolidColorBrush FourHourBrush { get; private set; }
+        public SolidColorBrush OneHourBrush { get; private set; }
+        public string FourHourTrend { get; private set; }
+        public string OneHourTrend { get; private set; }
+
+        public OldTrendView(SymbolTrend[] trends)
+        {
+            FourHourBrush = PercentageToBrushConverter.GetBrushFromPercentage(trends[0].TrendRaw);
+            OneHourBrush = PercentageToBrushConverter.GetBrushFromPercentage(trends[1].TrendRaw);
+            FourHourTrend = string.Format("{00:P2}", trends[0].Trend);
+            OneHourTrend = string.Format("{00:P2}", trends[1].Trend);
+        }
+    }
+
+    public class SignalView
+    {
+        public Signal Signal { get; set; }
+        public TrendView FourHourTrendView { get; private set; }
+        public SignalView(Signal signal)
+        {
+            Signal = signal;
+        }
+
+
+        public SolidColorBrush FourHourBrush { get { return PercentageToBrushConverter.GetBrushFromPercentage(Signal.FourHourTrendObject.TrendRaw); } }
+        public SolidColorBrush OneHourBrush { get { return PercentageToBrushConverter.GetBrushFromPercentage(Signal.OneHourTrendObject.TrendRaw); } }
+        public string FourHourTrend { get { return string.Format("{00:P2}", Signal.FourHourTrendObject.Trend); } }
+        public string OneHourTrend { get { return string.Format("{00:P2}", Signal.OneHourTrendObject.Trend); } }
+
+        public string Symbol { get { return Signal.Symbol; } }
+        public string Trade { get { return Signal.Trade; } }
+        public string Date { get { return Signal.Date; } }
+        public string TimeFrame { get { return Signal.TimeFrame; } }
+        public string HyperTraderURI { get { return Signal.HyperTraderURI; } }
+        public ExchangeSharp.ExchangeVolume Volume { get { return Signal.Volume; } }
+        public string BBBandwidth { get { return Signal.BBBandwidth; } }
+
+    }
+
+    public class SymbolView
+    {
+        public ExtendedSymbol Symbol { get; set; }
+        public TrendView FourHourTrendView { get; private set; }
+        public SymbolView (ExtendedSymbol symbol)
+        {
+            Symbol = symbol;
+            FourHourTrendView = new TrendView(symbol.Trends[0]);
+        }
+        public string MarketSymbol { get { return Symbol.MarketSymbol; } }
+
+        public SolidColorBrush FourHourBrush { get { return PercentageToBrushConverter.GetBrushFromPercentage(Symbol.Trends[0].TrendRaw); } }
+        public SolidColorBrush OneHourBrush { get { return PercentageToBrushConverter.GetBrushFromPercentage(Symbol.Trends[1].TrendRaw); } }
+        public string FourHourTrend { get { return string.Format("{00:P2}", Symbol.Trends[0].Trend); } }
+        public string OneHourTrend { get { return string.Format("{00:P2}", Symbol.Trends[1].Trend); } }
+    }
 }

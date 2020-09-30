@@ -3,33 +3,73 @@ using DayTradeScanner.Bot.Implementation;
 using ExchangeSharp;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace DayTradeScanner
 {
 
+    public class SimpleWeightedAverage {
+        private class AveragePair
+        {
+            public decimal Value;
+            public decimal Weight;
+            public AveragePair(decimal value, decimal weight)
+            {
+                Value = value;
+                Weight = weight;
+            }
+        }
+        private List<AveragePair> pairs = new List<AveragePair>(); 
+        public void Add(decimal val, decimal weight)
+        {
+            pairs.Add(new AveragePair(val, weight));
+        }
+
+        public void Clear()
+        {
+            pairs.Clear();
+        }
+
+        public decimal Result()
+        {
+            decimal total = 0m;
+            decimal totalWeight = pairs.Sum(x => x.Weight);
+            foreach(AveragePair pair in pairs)
+            {
+                total += ((pair.Value * pair.Weight) / totalWeight);
+            }
+            return total;
+        }
+    }
+
     public struct SymbolTrend {
-        public int TimeframeInHours;
-        public decimal Trend;
-        public MarketCandle Candle;
+        public int TimeframeInHours { get; set; }
+        public decimal Trend { get { return TrendRaw / 100M; } }
+        public decimal TrendRaw { get; set; }
+        public MarketCandle Candle { get; set; }
+
         public SymbolTrend(int timeframe) {
             TimeframeInHours = timeframe;
-            Trend = 0M;
+            TrendRaw = 0M;
             Candle = null;
         }
 	}
 
     public class ExtendedSymbol {
-        public ExchangeMarket Symbol;
-        public ExchangeTicker Ticker;
-        public SymbolTrend[] Trends;
+        public ExchangeMarket Symbol { get; set; }
+        public string MarketSymbol { get { return Symbol.MarketSymbol; } }
+        public ExchangeTicker Ticker { get; set; }
+        public SymbolTrend[] Trends { get; set; }
     }
     public class Scanner
     {
         private Settings _settings;
         private ExchangeAPI _api;
         private List<ExtendedSymbol> _symbols = new List<ExtendedSymbol>();
+        private SimpleWeightedAverage fourHourTrendAverage = new SimpleWeightedAverage();
+        private SimpleWeightedAverage oneHourTrendAverage = new SimpleWeightedAverage();
 
         public static int TimeframeToMinutes(string timeframe) {
             int minutes = 5;
@@ -150,15 +190,19 @@ namespace DayTradeScanner
             _symbols = _symbols.OrderBy(e => e.Symbol.MarketSymbol).ToList();
         }
 
-        private MarketCandle CalculateFourHourCandle(List<MarketCandle> candles) {
+
+		private MarketCandle emptyCandle = new MarketCandle();
+
+        private MarketCandle CalculateFourHourCandle(List<MarketCandle> candles)
+        {
             MarketCandle lastCandle = candles[0];
             MarketCandle firstCandle = candles[candles.Count - 1];
             MarketCandle fourHourCandle = new MarketCandle();
             fourHourCandle.BaseCurrencyVolume = firstCandle.BaseCurrencyVolume;
             fourHourCandle.ExchangeName = firstCandle.ExchangeName;
             fourHourCandle.Name = firstCandle.Name;
-            fourHourCandle.PeriodSeconds = 60 * 60;
-            fourHourCandle.Timestamp = candles.Last().Timestamp;
+            fourHourCandle.PeriodSeconds = (60 * 60) * 4;
+            fourHourCandle.Timestamp = lastCandle.Timestamp;
             fourHourCandle.ClosePrice = lastCandle.ClosePrice;
             fourHourCandle.OpenPrice = firstCandle.OpenPrice;
             fourHourCandle.HighPrice = candles.Average(x => x.HighPrice);
@@ -168,11 +212,30 @@ namespace DayTradeScanner
             return fourHourCandle;
         }
 
-        private async Task GetSymbolTrendCandles(ExchangeMarket symbol, ref SymbolTrend fourHourTrend, ref SymbolTrend oneHourTrend) {
-            var candles = (await _api.GetCandlesAsync(symbol.MarketSymbol, 60 * 60, DateTime.Now.AddHours(-4), null, 4)).Reverse().ToList();
-            var firstCandle = candles.FirstOrDefault();
-            oneHourTrend.Candle = firstCandle;
-            fourHourTrend.Candle = CalculateFourHourCandle(candles);
+            private async Task<List<MarketCandle>> GetTrendCandles(string marketSymbol)
+        {
+            var candles = (await _api.GetCandlesAsync(marketSymbol, 60 * 60, DateTime.UtcNow.AddHours(-4), null, 4)).Reverse().ToList();
+            if (candles.Count() != 4)
+            {
+                Trace.WriteLine("Couldn't get 4 candles");
+                return candles;
+            }
+            return candles;
+        }
+
+
+        public async Task<bool> GetSymbolTrendCandles(ExtendedSymbol symbol) {
+            try
+            {
+                List<MarketCandle> candles = await GetTrendCandles(symbol.Symbol.MarketSymbol);
+                symbol.Trends[0].Candle = CalculateFourHourCandle(candles);
+                symbol.Trends[1].Candle = candles[0];
+            } catch (Exception ex)
+            {
+                Trace.WriteLine(ex);
+            }
+            return symbol.Trends[0].Candle != null && symbol.Trends[1].Candle != null;
+
         }
 
         /// <summary>
@@ -210,36 +273,50 @@ namespace DayTradeScanner
 
         private DateTime nextFetchCandlesTime;
         public bool ShouldFetchTrendCandles() {
-            if (DateTime.Now > nextFetchCandlesTime) {
+            if (DateTime.UtcNow > nextFetchCandlesTime) {
                 return true;
 			}
             return false;
 		}
-        public async Task FetchTrendCandles() {
-            foreach(ExtendedSymbol symbol in _symbols) {
-                await GetSymbolTrendCandles(symbol.Symbol, ref symbol.Trends[0], ref symbol.Trends[1]);
-			}
 
+
+        public void FinalizeTrendCandlesLookup(bool wasSuccesful)
+        {
             // schedule the next time
-            SymbolTrend firstTrend = _symbols[0].Trends[0];
-            MarketCandle candle = firstTrend.Candle;
-            nextFetchCandlesTime = candle.Timestamp.AddHours(firstTrend.TimeframeInHours);
+            if (wasSuccesful)
+            {
+                SymbolTrend firstTrend = _symbols[0].Trends[0];
+                MarketCandle candle = firstTrend.Candle;
+                nextFetchCandlesTime = candle.Timestamp.AddHours(firstTrend.TimeframeInHours);
+            } else
+            {
+                nextFetchCandlesTime = DateTime.UtcNow.AddMinutes(5);
+            }
         }
 
 
+        public decimal OneHourTrend { get; private set; }
+        public decimal FourHourTrend { get; private set; }
 
         public void CalculateSymbolTrends() {
+            oneHourTrendAverage.Clear();
+            fourHourTrendAverage.Clear();
+
             foreach (ExtendedSymbol symbol in _symbols) {
 				CalculateSymbolTrend(symbol);
+                fourHourTrendAverage.Add(symbol.Trends[0].TrendRaw, (decimal)symbol.Trends[0].Candle.QuoteCurrencyVolume);
+                oneHourTrendAverage.Add(symbol.Trends[1].TrendRaw, (decimal)symbol.Trends[1].Candle.QuoteCurrencyVolume);
 			}
-		}
 
-		private static void CalculateSymbolTrend(ExtendedSymbol symbol) {
+            OneHourTrend = oneHourTrendAverage.Result() / 100M;
+            FourHourTrend = fourHourTrendAverage.Result() / 100M;
+        }
+
+		private void CalculateSymbolTrend(ExtendedSymbol symbol) {
 			for (int i = 0; i < symbol.Trends.Length; i++) {
-				// ticker, candle
-				decimal diff = symbol.Ticker.Last - symbol.Trends[i].Candle.ClosePrice;
-				decimal trendPercentage = diff / (symbol.Trends[i].Candle.ClosePrice / 100M);
-				symbol.Trends[i].Trend = trendPercentage;
+				decimal diff = symbol.Trends[i].Candle.ClosePrice - symbol.Trends[i].Candle.OpenPrice;
+                decimal trendPercentage = (diff / symbol.Trends[i].Candle.OpenPrice) * 100M;
+                symbol.Trends[i].TrendRaw = trendPercentage;
 			}
 		}
 
@@ -258,16 +335,13 @@ namespace DayTradeScanner
                 TradeType tradeType = TradeType.Long;
 
 				var strategy = new DayTradingStrategy(symbol.Symbol.MarketSymbol, _settings);
-                if (strategy.IsValidEntry(candles, 0, out tradeType))
+                if (strategy.IsValidEntry(candles, 0, out tradeType, out decimal bandwitdh))
                 {
                     // ignore signals for shorts when not allowed
                     if (tradeType == TradeType.Short && !_settings.AllowShorts) return null;
 
 					// got buy/sell signal.. write to console
 					Console.Beep();
-
-                    symbol.Ticker.Last = candles[0].ClosePrice;
-                    CalculateSymbolTrend(symbol);
 
                     ExchangeVolume volume = symbol.Ticker.Volume;
 
@@ -278,8 +352,11 @@ namespace DayTradeScanner
                         TimeFrame = $"{minutes} min",
                         HyperTraderURI = GetHyperTradeURI(symbol.Symbol, minutes),
                         Volume = volume,
-                        FourHourTrend = symbol.Trends[0],
-                        OneHourTrend = symbol.Trends[1]
+                        FourHourTrend = String.Format("{00:P2}", symbol.Trends[0].Trend),
+                        OneHourTrend = String.Format("{00:P2}", symbol.Trends[1].Trend),
+                        FourHourTrendObject = symbol.Trends[0],
+                        OneHourTrendObject = symbol.Trends[1],
+                        BBBandwidth = String.Format("{0:0.0#}", bandwitdh)
                     };
                 }
             }

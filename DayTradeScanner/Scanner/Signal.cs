@@ -10,7 +10,10 @@ namespace DayTradeScanner
         public string TimeFrame { get; set; }
         public string HyperTraderURI { get; set; }
         public ExchangeVolume Volume { get; set; }
-        public SymbolTrend FourHourTrend { get; set; }
-        public SymbolTrend OneHourTrend { get; set; }
+        public string FourHourTrend { get; set; }
+        public string OneHourTrend { get; set; }
+        public SymbolTrend FourHourTrendObject { get; set; }
+        public SymbolTrend OneHourTrendObject { get; set; }
+        public string BBBandwidth { get; set; }
     }
 }

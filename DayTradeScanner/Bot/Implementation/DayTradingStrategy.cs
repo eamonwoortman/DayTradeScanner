@@ -135,9 +135,11 @@ namespace DayTradeScanner.Bot.Implementation
 		/// <param name="candles">History of candles</param>
 		/// <param name="bar">The current candle</param>
 		/// <param name="tradeType">returns trade type.</param>
-		public bool IsValidEntry(List<MarketCandle> candles, int bar, out TradeType tradeType)
+		/// <param name="bandwidth">returns BB bandwidth.</param>
+		public bool IsValidEntry(List<MarketCandle> candles, int bar, out TradeType tradeType, out decimal bandwidth)
 		{
 			tradeType = TradeType.Long;
+			bandwidth = 0m;
 			if (candles.Count < bar + 20)
 			{
 				return false;
@@ -164,6 +166,7 @@ namespace DayTradeScanner.Bot.Implementation
 				return false;
 			}
 
+			bandwidth = bbands.Bandwidth;
 			// is bolling bands width > 2%
 			if (bbands.Bandwidth >= (decimal)_settings.MinBollingerBandWidth)
 			{
@@ -194,7 +197,7 @@ namespace DayTradeScanner.Bot.Implementation
 		private void ScanForEntry(List<MarketCandle> candles, int bar, ITradeManager tradeManager)
 		{
 			TradeType tradeType;
-			if (IsValidEntry(candles, bar, out tradeType))
+			if (IsValidEntry(candles, bar, out tradeType, out decimal bandwith))
 			{
 				var candle = candles[bar];
 				var totalRebuy = 1m;

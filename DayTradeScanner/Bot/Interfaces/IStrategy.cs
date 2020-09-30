@@ -21,7 +21,7 @@ namespace DayTradeScanner.Bot
 		/// <param name="candles">History of candles</param>
 		/// <param name="candle">The current candle</param>
 		/// <param name="tradeType">returns trade type.</param>
-		bool IsValidEntry(List<MarketCandle> candles, int candle, out TradeType tradeType);
+		bool IsValidEntry(List<MarketCandle> candles, int candle, out TradeType tradeType, out decimal bandwidth);
 
         /// <summary>
         /// Symbol to test
