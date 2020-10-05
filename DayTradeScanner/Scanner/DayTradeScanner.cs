@@ -294,6 +294,14 @@ namespace DayTradeScanner
             }
         }
 
+        public void Dispose()
+        {
+            if (_api != null)
+            {
+                _api.Dispose();
+                _api = null;
+            }
+        }
 
         public decimal OneHourTrend { get; private set; }
         public decimal FourHourTrend { get; private set; }

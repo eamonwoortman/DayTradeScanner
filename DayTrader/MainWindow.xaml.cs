@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Windows.Data;
 using System.Globalization;
 using System.Windows.Media;
+using System.ComponentModel;
 
 namespace DayTrader
 {
@@ -293,6 +294,9 @@ namespace DayTrader
 				SetStatusText($"sleeping...");
                 Thread.Sleep(1000);
 			}
+
+            _scanner.Dispose();
+            _scanner = null;
         }
 
         private void SetStatusText(string statusTxt)
@@ -354,7 +358,19 @@ namespace DayTrader
             };
             Process.Start(psi);
         }
-	}
+
+       
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            StopScanning();
+            if (_scanner != null)
+            {
+                _scanner.Dispose();
+                _scanner = null;
+            }
+            base.OnClosing(e);
+        }
+    }
 
     public class TrendView
     {
