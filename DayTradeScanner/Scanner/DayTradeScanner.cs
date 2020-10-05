@@ -348,18 +348,17 @@ namespace DayTradeScanner
                     // ignore signals for shorts when not allowed
                     if (tradeType == TradeType.Short && !_settings.AllowShorts) return null;
 
-					// got buy/sell signal.. write to console
-					Console.Beep();
-
-                    ExchangeVolume volume = symbol.Ticker.Volume;
-
+                    // got buy/sell signal.. write to console
+                    int beepFrequency = symbol.Trends[1].Trend > 0 ? 1000 : 500;
+                    Console.Beep(beepFrequency, 200);
+                    
                     return new Signal() {
                         Symbol = symbol.Symbol.MarketSymbol,
                         Trade = tradeType.ToString(),
                         Date = $"{candles[0].Timestamp.AddHours(2):dd-MM-yyyy HH:mm}",
                         TimeFrame = $"{minutes} min",
                         HyperTraderURI = GetHyperTradeURI(symbol.Symbol, minutes),
-                        Volume = volume,
+                        Volume = symbol.Ticker.Volume,
                         FourHourTrend = String.Format("{00:P2}", symbol.Trends[0].Trend),
                         OneHourTrend = String.Format("{00:P2}", symbol.Trends[1].Trend),
                         FourHourTrendObject = symbol.Trends[0],
