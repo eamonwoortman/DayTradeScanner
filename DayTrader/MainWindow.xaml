@@ -4,7 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DayTrader"
         mc:Ignorable="d" 
-        Title="Daytrade scanner v2.3"  Width="900" Height="480"
+        Title="Daytrade scanner v2.4"  Width="900" Height="480"
         x:Class="DayTrader.MainWindow">
     <Window.Resources>
         <local:PercentageToBrushConverter x:Key="brushConverter"/>
