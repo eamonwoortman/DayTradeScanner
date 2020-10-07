@@ -4,7 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DayTrader"
         mc:Ignorable="d" 
-        Title="Settings" Width="500" Height="450"
+        Title="Settings" Width="500" Height="500"
         x:Class="DayTrader.SettingsDialog">
     <Grid Margin="10,10,10,10">
         <Grid.ColumnDefinitions>
@@ -23,6 +23,8 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+
         </Grid.RowDefinitions>
             <TextBlock Text="Exchange" Grid.Row="0" Grid.Column="0" Margin="0,0,10,10" VerticalAlignment="Center" />
         <ComboBox Name="dropExchange" Grid.Row="0" Grid.Column="1"  Margin="0,0,0,10" Width="150" SelectedIndex="0" HorizontalAlignment="Left"  VerticalAlignment="Center" ItemsSource="{Binding Exchanges}" />
@@ -69,7 +71,14 @@
             <TextBox Text="{Binding MaxPanic, Mode=TwoWay}" Width="50"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
             <TextBlock Text="%" VerticalAlignment="Center" />
         </StackPanel>
-         <StackPanel Orientation="Horizontal" Grid.Row="8" Grid.Column="1" Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
+
+        <TextBlock Text="Min Price" Grid.Row="8" Grid.Column="0" Margin="0,0,10,10"  VerticalAlignment="Center" />
+        <StackPanel Orientation="Horizontal" Grid.Row="8" Grid.Column="1" Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
+            <TextBox Text="{Binding MinPrice, Mode=TwoWay}" Width="150"  HorizontalAlignment="Left"  VerticalAlignment="Center" />
+            <TextBlock Text="BTC" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="9" Grid.Column="1" Margin="0,0,0,10"  HorizontalAlignment="Left"  VerticalAlignment="Center" >
         <Button Name="btnReset" Width="100" HorizontalAlignment="Right"  Margin="0,0,10,10"  VerticalAlignment="Center">Reset</Button>
         <Button Name="btnSave" Width="100" HorizontalAlignment="Right"  Margin="0,0,10,10"  VerticalAlignment="Center">Save</Button>
         </StackPanel>

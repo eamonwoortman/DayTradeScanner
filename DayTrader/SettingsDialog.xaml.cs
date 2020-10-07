@@ -3,6 +3,7 @@ using DayTradeScanner;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Windows.Controls;
+using System.Globalization;
 
 namespace DayTrader
 {
@@ -65,6 +66,7 @@ namespace DayTrader
 			MaxPanic = $"{settings.MaxPanic:0.00}";
 			MaxFlatCandles = settings.MaxFlatCandles.ToString();
 			MaxFlatCandleCount = settings.MaxFlatCandleCount.ToString();
+			MinPrice = $"{settings.MinPrice:0.00000000}";
 
 			Volume = settings.Min24HrVolume.ToString();
 			_dropDownExchange.SelectedIndex = Exchanges.IndexOf(settings.Exchange);
@@ -127,6 +129,10 @@ namespace DayTrader
 			if (double.TryParse(BollingerBandWidth, out d))
 			{
 				settings.MinBollingerBandWidth = d;
+			}
+			if (decimal.TryParse(MinPrice, out decimal dec))
+			{
+				settings.MinPrice = dec;
 			}
 			settings.Exchange = Exchanges[_dropDownExchange.SelectedIndex];
 			settings.TimeFrames = SelectedItemsAsString(_dropDownTimeFrame);
@@ -223,6 +229,13 @@ namespace DayTrader
 		{
 			get { return (string)this.GetValue(MaxPanicProperty); }
 			set { this.SetValue(MaxPanicProperty, value); }
+		}
+
+		public static readonly DependencyProperty MinPriceProperty = DependencyProperty.Register("MinPrice", typeof(string), typeof(SettingsDialog));
+		public string MinPrice
+		{
+			get { return (string)this.GetValue(MinPriceProperty); }
+			set { this.SetValue(MinPriceProperty, value); }
 		}
 	}
 }

@@ -43,7 +43,8 @@ namespace DayTradeScanner
         
 		[Key(13)]
 		public string[] TimeFrames { get; set; }
-
+		[Key(14)]
+		public decimal MinPrice { get; set; }
 
 		public Settings()
 		{
@@ -56,6 +57,7 @@ namespace DayTradeScanner
 			MaxFlatCandleCount = 15;
 			MaxPanic = 5;
 			TimeFrames = new string[] { "5 min" };
+			MinPrice = 0.0000025M;
 		}
 	}
 }

@@ -172,6 +172,12 @@ namespace DayTradeScanner
                     continue;
                 }
 
+                if (ticker.Ask < _settings.MinPrice)
+                {
+                    Trace.WriteLine($"Ignoring because price is too low: {ticker.Ask}");
+                    continue;
+                }
+
                 SymbolTrend fourHourTrend = new SymbolTrend(4);
                 SymbolTrend oneHourTrend = new SymbolTrend(1); 
 
