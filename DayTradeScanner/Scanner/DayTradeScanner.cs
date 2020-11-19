@@ -3,8 +3,10 @@ using DayTradeScanner.Bot.Implementation;
 using ExchangeSharp;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace DayTradeScanner
@@ -49,7 +51,6 @@ namespace DayTradeScanner
         public decimal Trend { get { return TrendRaw / 100M; } }
         public decimal TrendRaw { get; set; }
         public MarketCandle Candle { get; set; }
-
         public SymbolTrend(int timeframe) {
             TimeframeInHours = timeframe;
             TrendRaw = 0M;
@@ -57,11 +58,76 @@ namespace DayTradeScanner
         }
 	}
 
+
+    //
+    // Summary:
+    //     Provides data for the System.ComponentModel.INotifyPropertyChanged.PropertyChanged
+    //     event.
+    public class TimeframeChangedEventArgs : EventArgs {
+
+        public TimeframeChangedEventArgs(int timeframePeriod) {
+            TimeframePeriod = timeframePeriod;
+        }
+
+        public int TimeframePeriod { get; private set; }
+    }
+
+
     public class ExtendedSymbol {
-        public ExchangeMarket Symbol { get; set; }
-        public string MarketSymbol { get { return Symbol.MarketSymbol; } }
-        public ExchangeTicker Ticker { get; set; }
-        public SymbolTrend[] Trends { get; set; }
+        public ExchangeMarket Symbol { get; private set; }
+        public ExchangeTicker Ticker { get; private set; }
+        public SymbolTrend[] Trends { get; private set; }
+
+        public string MarketSymbol { get; private set; }
+
+        public Dictionary<int, List<MarketCandle>> TimeframeCandles { get; private set; }
+
+        public ExtendedSymbol(ExchangeMarket symbol, ExchangeTicker ticker, SymbolTrend[] trends) {
+            this.Symbol = symbol;
+            this.Ticker = ticker;
+            this.Trends = trends;
+            MarketSymbol = symbol.MarketSymbol;
+            TimeframeCandles = new Dictionary<int, List<MarketCandle>>();
+        }
+
+        public delegate void TimeframeChangedEventHandler(object sender, TimeframeChangedEventArgs e);
+        public event TimeframeChangedEventHandler TimeframeChanged;
+
+        private decimal GetRawTrend(MarketCandle candle) {
+            decimal diff = candle.ClosePrice - candle.OpenPrice;
+            decimal trendPercentage = (diff / candle.OpenPrice) * 100M;
+            return trendPercentage;
+        }
+
+        public void UpdateTrends() {
+            for (int i = 0; i < Trends.Length; i++) {
+                SymbolTrend trend = Trends[i];
+                int minutes = trend.TimeframeInHours * 60;
+                if (TimeframeCandles?.Count == 0 || !TimeframeCandles.ContainsKey(minutes) || TimeframeCandles[minutes].Count == 0) {
+                    continue;
+				}
+                trend.Candle = TimeframeCandles[minutes][0];
+                trend.TrendRaw = GetRawTrend(trend.Candle);
+                Trends[i] = trend;
+            }
+		}
+
+		public void NotifyCandleUpdate(int timeframePeriod) {
+            UpdateTrends();
+            TimeframeChanged.Invoke(this, new TimeframeChangedEventArgs(timeframePeriod));
+        }
+        public override int GetHashCode() {
+            return this.MarketSymbol.GetHashCode();
+        }
+
+        public override bool Equals(object obj) {
+            if (obj == null || GetType() != obj.GetType())
+                return false;
+
+            var other = (ExtendedSymbol)obj;
+            return this.MarketSymbol == other.MarketSymbol;
+        }
+
     }
     public class Scanner
     {
@@ -70,40 +136,6 @@ namespace DayTradeScanner
         private List<ExtendedSymbol> _symbols = new List<ExtendedSymbol>();
         private SimpleWeightedAverage fourHourTrendAverage = new SimpleWeightedAverage();
         private SimpleWeightedAverage oneHourTrendAverage = new SimpleWeightedAverage();
-
-        public static int TimeframeToMinutes(string timeframe) {
-            int minutes = 5;
-            switch (timeframe.ToLowerInvariant()) { //_settings.TimeFrame
-                case "1 min":
-                    minutes = 1;
-                    break;
-
-                case "3 min":
-                    minutes = 3;
-                    break;
-
-                case "5 min":
-                    minutes = 5;
-                    break;
-
-                case "15 min":
-                    minutes = 15;
-                    break;
-
-                case "30 min":
-                    minutes = 30;
-                    break;
-
-                case "1 hr":
-                    minutes = 60;
-                    break;
-
-                case "4 hr":
-                    minutes = 4 * 60;
-                    break;
-            }
-            return minutes;
-        }
 
         public Scanner(Settings settings)
         {
@@ -133,19 +165,83 @@ namespace DayTradeScanner
             }
 
             _api.RateLimit = new RateGate(800, TimeSpan.FromSeconds(60d));
-
-            FindCoinsWithEnoughVolume();
         }
+
+        public List<int> StrategyPeriodsMinutes { get; private set; }
+        public List<int> PeriodsMinutes { get; private set; }
+        public Dictionary<int, string> timeframeKlines;
+        public const int MaxCandlesPerTimeframe = 150;
+
+        public string GetKlineFromMinutes(int periodMinutes) {
+            return timeframeKlines[periodMinutes];
+		}
+
+        public async Task GetInitialCandles(int periodMinutes, CancellationToken ct) {
+            try {
+                foreach (ExtendedSymbol symbol in Symbols) {
+                    if (ct.IsCancellationRequested) {
+                        ct.ThrowIfCancellationRequested();
+                    }
+                    
+                    Dictionary<int, List<MarketCandle>> marketCandles = symbol.TimeframeCandles;
+                    lock (marketCandles) {
+                        if (!marketCandles.ContainsKey(periodMinutes)) {
+                            List<MarketCandle> candleQueue = new List<MarketCandle>(MaxCandlesPerTimeframe);
+                            marketCandles.Add(periodMinutes, candleQueue);
+                        }
+                    }
+                    if (_api == null) {
+                        break;
+					}
+                    var candles = (await _api.GetCandlesAsync(symbol.Symbol.MarketSymbol, 60 * periodMinutes, DateTime.Now.AddMinutes(-periodMinutes * MaxCandlesPerTimeframe), null, MaxCandlesPerTimeframe)).Reverse().ToList();
+                    candles = AddMissingCandles(candles, periodMinutes);
+                    marketCandles[periodMinutes].AddRange(candles);
+                    symbol.NotifyCandleUpdate(periodMinutes);
+                    Trace.WriteLine($"Got {candles.Count} candles in {symbol.Symbol.MarketSymbol} for timeframe {periodMinutes}");
+                }
+            } catch (Exception ex) { Console.WriteLine($"[DayTrader] Exception caught: {ex}"); }
+        }
+
+        private void Setup() {
+            StrategyPeriodsMinutes = new List<int>();
+            timeframeKlines = new Dictionary<int, string>();
+
+            foreach (string timeframe in _settings.TimeFrames) {
+                int minutes = TimeframeToMinutes(timeframe);
+                StrategyPeriodsMinutes.Add(minutes);
+            }
+
+            PeriodsMinutes = new List<int>(StrategyPeriodsMinutes);
+            PeriodsMinutes.Add(60); // add hour trend
+            PeriodsMinutes.Add(240); // add 4 hour trend
+            PeriodsMinutes = PeriodsMinutes.OrderByDescending(x => x).ToList();
+
+            foreach (int minutes in PeriodsMinutes) {
+                string klineTimeframe = PeriodToKlineTimeframe(minutes);
+                timeframeKlines.Add(minutes, klineTimeframe);
+            }
+        }
+
+        public bool InitialCandlesFetched { get; set; }
+
+        public async Task Initialize() {
+            try {
+                Setup();
+                await FindCoinsWithEnoughVolume();
+            } catch (Exception ex) {
+                Console.WriteLine($"[DayTradeScanner] Exception found: {ex}");
+			}
+		}
 
         /// <summary>
         /// Downloads all symbols from the exchanges and filters out the coins with enough 24hr Volume
         /// </summary>
         /// <returns></returns>
-        private void FindCoinsWithEnoughVolume()
+        public async Task FindCoinsWithEnoughVolume()
         {
             _symbols = new List<ExtendedSymbol>();
-            var allSymbolsMeta = _api.GetMarketSymbolsMetadataAsync().Result;
-            var allTickers = _api.GetTickersAsync().Result;
+            var allSymbolsMeta = await _api.GetMarketSymbolsMetadataAsync();
+            var allTickers = await _api.GetTickersAsync();
 
             // for each symbol
             foreach (var metadata in allSymbolsMeta)
@@ -179,15 +275,10 @@ namespace DayTradeScanner
                 }
 
                 SymbolTrend fourHourTrend = new SymbolTrend(4);
-                SymbolTrend oneHourTrend = new SymbolTrend(1); 
+                SymbolTrend oneHourTrend = new SymbolTrend(1);
 
                 // add to list
-                ExtendedSymbol extendedSymbol = new ExtendedSymbol() {
-                    Symbol = metadata,
-                    Ticker = ticker,
-                    Trends = new SymbolTrend[2]
-                };
-
+                ExtendedSymbol extendedSymbol = new ExtendedSymbol(metadata, ticker, new SymbolTrend[2]);
                 extendedSymbol.Trends[0] = fourHourTrend;
                 extendedSymbol.Trends[1] = oneHourTrend;
 
@@ -230,20 +321,6 @@ namespace DayTradeScanner
         }
 
 
-        public async Task<bool> GetSymbolTrendCandles(ExtendedSymbol symbol) {
-            try
-            {
-                List<MarketCandle> candles = await GetTrendCandles(symbol.Symbol.MarketSymbol);
-                symbol.Trends[0].Candle = CalculateFourHourCandle(candles);
-                symbol.Trends[1].Candle = candles[0];
-            } catch (Exception ex)
-            {
-                Trace.WriteLine(ex);
-            }
-            return symbol.Trends[0].Candle != null && symbol.Trends[1].Candle != null;
-
-        }
-
         /// <summary>
         /// returns whether currency is allowed
         /// </summary>
@@ -275,29 +352,6 @@ namespace DayTradeScanner
             string urlSymbol = $"{symbol.BaseCurrency}-{symbol.QuoteCurrency}";
             string exchange = _settings.Exchange.ToLowerInvariant();
             return $"hypertrader://{exchange}/{urlSymbol}/{minutes}";
-        }
-
-        private DateTime nextFetchCandlesTime;
-        public bool ShouldFetchTrendCandles() {
-            if (DateTime.UtcNow > nextFetchCandlesTime) {
-                return true;
-			}
-            return false;
-		}
-
-
-        public void FinalizeTrendCandlesLookup(bool wasSuccesful)
-        {
-            // schedule the next time
-            if (wasSuccesful)
-            {
-                SymbolTrend firstTrend = _symbols[0].Trends[0];
-                MarketCandle candle = firstTrend.Candle;
-                nextFetchCandlesTime = candle.Timestamp.AddHours(firstTrend.TimeframeInHours);
-            } else
-            {
-                nextFetchCandlesTime = DateTime.UtcNow.AddMinutes(5);
-            }
         }
 
         public void Dispose()
@@ -334,17 +388,18 @@ namespace DayTradeScanner
 			}
 		}
 
-		/// <summary>
-		/// Performs a scan for all filtered symbols
-		/// </summary>
-		/// <returns></returns>
-		public async Task<Signal> ScanAsync(ExtendedSymbol symbol, int minutes)
+
+        /// <summary>
+        /// Performs a scan for all filtered symbols
+        /// </summary>
+        /// <returns></returns>
+        public async Task<Signal> ScanSymbolsAsync(ExtendedSymbol symbol, int minutes)
         {
             try
             {
-                // download the new candles
-                var candles = (await _api.GetCandlesAsync(symbol.Symbol.MarketSymbol, 60 * minutes, DateTime.Now.AddMinutes(-5 * 50))).Reverse().ToList();
-                candles = AddMissingCandles(candles, minutes);
+                Dictionary<int, List<MarketCandle>> symbolCandles = symbol.TimeframeCandles;
+                List<MarketCandle> candles = symbolCandles[minutes];
+
                 // scan candles for buy/sell signal
                 TradeType tradeType = TradeType.Long;
 
@@ -409,5 +464,76 @@ namespace DayTradeScanner
 
 			return result;
 		}
-	}
+
+
+        public static int TimeframeToMinutes(string timeframe) {
+            int minutes = 5;
+            switch (timeframe.ToLowerInvariant()) { //_settings.TimeFrame
+                case "1 min":
+                    minutes = 1;
+                    break;
+
+                case "3 min":
+                    minutes = 3;
+                    break;
+
+                case "5 min":
+                    minutes = 5;
+                    break;
+
+                case "15 min":
+                    minutes = 15;
+                    break;
+
+                case "30 min":
+                    minutes = 30;
+                    break;
+
+                case "1 hr":
+                    minutes = 60;
+                    break;
+
+                case "4 hr":
+                    minutes = 4 * 60;
+                    break;
+            }
+            return minutes;
+        }
+
+        public static string PeriodToKlineTimeframe(int minutes) {
+            string klineTimeframe = "1m";
+            switch (minutes) { //_settings.TimeFrame
+                case 1:
+                    klineTimeframe = "1m";
+                    break;
+
+                case 3:
+                    klineTimeframe = "3m";
+                    break;
+
+                case 5:
+                    klineTimeframe = "5m";
+                    break;
+
+                case 15:
+                    klineTimeframe = "15m";
+                    break;
+
+                case 30:
+                    klineTimeframe = "30m";
+                    break;
+
+                case 60:
+                    klineTimeframe = "1h";
+                    break;
+
+                case 240:
+                    klineTimeframe = "4h";
+                    break;
+            }
+            return klineTimeframe;
+        }
+
+    }
+
 }

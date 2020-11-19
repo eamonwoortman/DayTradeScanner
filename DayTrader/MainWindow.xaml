@@ -8,6 +8,59 @@
         x:Class="DayTrader.MainWindow">
     <Window.Resources>
         <local:PercentageToBrushConverter x:Key="brushConverter"/>
+
+        <Style x:Key="ChangedCellStyle" TargetType="DataGridCell">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <ControlTemplate.Triggers>
+                            <EventTrigger RoutedEvent="Binding.TargetUpdated">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <ColorAnimation Duration="00:00:04" Storyboard.TargetName="myTxt"
+                                        Storyboard.TargetProperty="(DataGridCell.Background).(SolidColorBrush.Color)" 
+                                        From="Gold"  AutoReverse="True" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </ControlTemplate.Triggers>
+
+                        <TextBox HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent"
+                             Name="myTxt" >
+                            <TextBox.Style>
+                                <Style TargetType="TextBox">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource Mode=TemplatedParent},Path=DataContext.SourceUpdating}" Value="True">
+                                            <Setter Property="Text" Value="{Binding RelativeSource={RelativeSource Mode=TemplatedParent},Path=Content.Text,NotifyOnSourceUpdated=True,NotifyOnTargetUpdated=True}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource Mode=TemplatedParent},Path=DataContext.SourceUpdating}" Value="False">
+                                            <Setter Property="Text" Value="{Binding RelativeSource={RelativeSource Mode=TemplatedParent},Path=Content.Text}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBox.Style>
+                        </TextBox>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="{x:Type TextBlock}" x:Key="MyStyle">
+            <Setter Property="Background">
+                <Setter.Value>
+                    <SolidColorBrush Color="Transparent"/>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <EventTrigger RoutedEvent="Binding.TargetUpdated">
+                    <BeginStoryboard HandoffBehavior="Compose">
+                        <Storyboard TargetProperty="(TextBlock.Background).(SolidColorBrush.Color)">
+                            <ColorAnimation Duration="0:0:0.10" To="Gold" AutoReverse="True"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
@@ -32,6 +85,7 @@
         <Grid Grid.Row="1" Margin="5,5,5,5">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
@@ -39,7 +93,8 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <Button Name="btnStart"  Content="{Binding StartButton}" Grid.Column="0" />
-            <Button Name="btnDonate" Content="Donate"  Grid.Column="2" />
+            <Button Name="btnTestWs"  Content="{Binding TestWsButton}" Grid.Column="1" Click="btnTestWs_Click"/>
+            <Button Name="btnDonate" Content="Donate"  Grid.Column="3" />
         </Grid>
 
         <Grid Grid.Row="2" Margin="5,5,0,0">
@@ -106,7 +161,8 @@
                         </StackPanel>
 
                         <DataGrid Name = "trendDataGrid" 
-             AlternationCount = "2" AutoGenerateColumns="False" IsReadOnly="True"  ItemsSource="{Binding Symbols}" ScrollViewer.VerticalScrollBarVisibility="Visible" Grid.Row="2">
+             AlternationCount = "2" AutoGenerateColumns="False" IsReadOnly="True" 
+                                  ItemsSource="{Binding Symbols, UpdateSourceTrigger=PropertyChanged}" ScrollViewer.VerticalScrollBarVisibility="Visible" Grid.Row="2">
 
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header = "Symbol" Binding = "{Binding Symbol.MarketSymbol}" Width="80"/>
@@ -116,22 +172,32 @@
                                 <DataGridTextColumn Header = "4H Close" Binding = "{Binding Trends[0].Candle.ClosePrice}" Width="60"/>
                                 <DataGridTextColumn Header = "4H Trend" Binding = "{Binding Trends[0].Trend}" Width="60"/>
                                 -->
-                                
-                                
-                                <DataGridTextColumn Header = "4H Trend %" Binding = "{Binding FourHourTrend}" Width="60">
+
+
+                                <DataGridTextColumn Header = "4H Trend %" Binding = "{Binding FourHourTrend, NotifyOnTargetUpdated=True}" Width="60">
                                     <DataGridTextColumn.CellStyle>
                                         <Style TargetType="{x:Type DataGridCell}">
                                             <Setter Property="Background" Value="{Binding FourHourBrush, UpdateSourceTrigger=PropertyChanged}" />
                                         </Style>
                                     </DataGridTextColumn.CellStyle>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Header = "1H Trend %" Binding = "{Binding OneHourTrend}" Width="60">
+                                <DataGridTextColumn Header = "1H Trend %" Binding = "{Binding OneHourTrend, NotifyOnTargetUpdated=True}" Width="60">
                                     <DataGridTextColumn.CellStyle>
                                         <Style TargetType="{x:Type DataGridCell}">
                                             <Setter Property="Background" Value="{Binding OneHourBrush, UpdateSourceTrigger=PropertyChanged}" />
                                         </Style>
                                     </DataGridTextColumn.CellStyle>
                                 </DataGridTextColumn>
+
+                                <!--
+                                <DataGridTextColumn Header = "1m candle" Binding = "{Binding Symbol.TimeframeCandles[1][0].Timestamp, NotifyOnTargetUpdated=True}" Width="60">
+                                </DataGridTextColumn>
+
+                                <DataGridTextColumn Header = "3m candle" Binding = "{Binding Symbol.TimeframeCandles[3][0].Timestamp, NotifyOnTargetUpdated=True}" Width="60">
+                                    
+                                </DataGridTextColumn>
+                                -->
+                                
                                 <!--
                                 <DataGridTextColumn Header = "4H Trend %" Binding = "{Binding FourHourTrendView.TrendString}" Width="60">
                                     <DataGridTextColumn.CellStyle>

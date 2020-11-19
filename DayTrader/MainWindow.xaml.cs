@@ -13,6 +13,9 @@ using System.Windows.Data;
 using System.Globalization;
 using System.Windows.Media;
 using System.ComponentModel;
+using ExchangeSharp;
+using SharpDX;
+using Newtonsoft.Json.Linq;
 
 namespace DayTrader
 {
@@ -86,6 +89,7 @@ namespace DayTrader
         public MainWindow() {
             DataContext = this;
             StartButton = "Start scanning";
+            TestWsButton = "Start WS";
             StatusText = "stopped...";
             Signals = new ObservableCollection<SignalView>();
             Symbols = new ObservableCollection<SymbolView>();
@@ -154,11 +158,16 @@ namespace DayTrader
 		{            
 			if (_thread != null)
             {
+                cancellationSource.Cancel();
+                
                 _running = false;
                 _thread.Join();
                 _thread = null;
                 StartButton = "Start scanning";
                 StatusText = "stopped...";
+
+                cancellationSource.Dispose();
+                cancellationSource = null;
             }
 		}
 
@@ -168,6 +177,7 @@ namespace DayTrader
             StartButton = "Stop scanning";
             StatusText = "initializing...";
             _running = true;
+            cancellationSource = new CancellationTokenSource();
             _thread = new Thread(new ThreadStart(DoScan));
             _thread.Start();
 			
@@ -185,14 +195,15 @@ namespace DayTrader
             }
         }
 
-        private async Task ScanSymbols(string[] orderedTimeframes, Settings settings) {
-            foreach (string timeframe in orderedTimeframes) {
+        private async Task ScanSymbols(Settings settings) {
+            
+            foreach (int minutes in _scanner.StrategyPeriodsMinutes) {
                 int idx = 0;
+                string timeframe = _scanner.GetKlineFromMinutes(minutes);
                 foreach (var symbol in _scanner.Symbols) {
                     idx++;
-                    int minutes = Scanner.TimeframeToMinutes(timeframe);
                     SetStatusText($"{settings.Exchange} scanning {symbol.Symbol.MarketSymbol} ({idx}/{_scanner.Symbols.Count}) on {timeframe}...");
-                    var signal = await _scanner.ScanAsync(symbol, minutes);
+                    var signal = await _scanner.ScanSymbolsAsync(symbol, minutes);
                     if (!_running) {
                         return;
                     }
@@ -203,45 +214,22 @@ namespace DayTrader
                     }
                     if (!_running) break;
                 }
+                await Task.Delay(200);
                 if (!_running) break;
             }
         }
 
-        private async Task<bool> FetchTrendCandles(Settings settings)
-        {
-            int idx = 0;
-            Task[] tasks = new Task[_scanner.Symbols.Count];
-            bool wasSuccesful = true;
-            foreach (var symbol in _scanner.Symbols)
-            {
-                Task task = Task.Run(async () => { 
-                    SetStatusText($"{settings.Exchange} scanning trend candles for: {symbol.Symbol.MarketSymbol} ({idx + 1}/{_scanner.Symbols.Count})...");
 
-                    bool gotCandles = await _scanner.GetSymbolTrendCandles(symbol);
-                    if (!gotCandles) // retry one more time
-                    {
-                        gotCandles = await _scanner.GetSymbolTrendCandles(symbol);
-                    }
-                    if (!gotCandles)
-                    {
-                        wasSuccesful = false;
-                    }
-                });
-                tasks[idx] = task;
-                idx++;
-                if (!_running) break;
-            }
-            await Task.WhenAll(tasks);
-            _scanner.FinalizeTrendCandlesLookup(wasSuccesful);
-            return wasSuccesful;
-        }
-
+        private Dictionary<string, ExtendedSymbol> symbolLookup;
         private async Task FillTrendSymbols()
         {
+            symbolLookup = new Dictionary<string, ExtendedSymbol>();
+
             await Dispatcher.BeginInvoke((Action)(() => {
                 Symbols.Clear();
                 foreach(ExtendedSymbol extendedSymbol in _scanner.Symbols)
                 {
+                    symbolLookup.Add(extendedSymbol.MarketSymbol, extendedSymbol);
                     Symbols.Add(new SymbolView(extendedSymbol));
                 }
             }));
@@ -257,30 +245,52 @@ namespace DayTrader
             }));
         }
 
+        private CancellationTokenSource cancellationSource;
+        private async Task FetchTrendCandles(Settings settings) {
+            int idx = 0;
+            Task[] tasks = new Task[_scanner.PeriodsMinutes.Count];
+            foreach (int periodMinutes in _scanner.PeriodsMinutes) {
+                Task task = Task.Run(async () => {
+                    if (!_running) {
+                        return;
+                    }
+
+                    string klineTimeframe = _scanner.GetKlineFromMinutes(periodMinutes);
+                    SetStatusText($"{settings.Exchange} fetching initial candles for timeframe: {klineTimeframe}...");
+                    await _scanner.GetInitialCandles(periodMinutes, cancellationSource.Token);
+                    
+                });
+
+                tasks[idx] = task;
+                idx++;
+                if (!_running) break;
+            }
+            await Task.WhenAll(tasks);
+        }
+
         private async void DoScan()
 		{
             var settings = SettingsStore.Load();
 
             SetStatusText($"initializing {settings.Exchange} with 24hr volume of {settings.Min24HrVolume} ...");
             _scanner = new Scanner(settings);
-            await FillTrendSymbols();
 
-            int numTimeFrames = settings.TimeFrames.Length;
-            string[] orderedTimeframes = settings.TimeFrames.OrderBy(x => Scanner.TimeframeToMinutes(x)).ToArray();
+            try {
+                await _scanner.Initialize();
+                await FillTrendSymbols();
+                await FetchTrendCandles(settings);
+            } catch (Exception ex) {
+                Console.WriteLine($"[DoScan] caught error: {ex}");
+			}
+            if (!wsRunning) {
+                await Dispatcher.BeginInvoke((Action)(() =>
+                {
+                    StartWebsocket();
+                }));
+            }
+
             while (_running) {
-
-                if (_scanner.ShouldFetchTrendCandles()) {
-                    SetStatusText($"Fetching trend candles.");
-                    bool gotCandles = await FetchTrendCandles(settings);
-                    if (gotCandles)
-                    {
-                        _scanner.CalculateSymbolTrends();
-                        UpdateTrendControls();
-                    }
-                    Thread.Sleep(1000);
-                } else {
-                    await ScanSymbols(orderedTimeframes, settings);
-                }
+                await ScanSymbols(settings);
 
                 if (!_running) break;
                 SetStatusText($"sleeping.");
@@ -295,8 +305,7 @@ namespace DayTrader
                 Thread.Sleep(1000);
 			}
 
-            _scanner.Dispose();
-            _scanner = null;
+            DisposeScanner();
         }
 
         private void SetStatusText(string statusTxt)
@@ -314,6 +323,12 @@ namespace DayTrader
         {
             get { return (string)this.GetValue(StartButtonProperty); }
             set { this.SetValue(StartButtonProperty, value); }
+        }
+
+        public static readonly DependencyProperty TestButtonProperty = DependencyProperty.Register("TestWsButton", typeof(string), typeof(MainWindow));
+        public string TestWsButton {
+            get { return (string)this.GetValue(TestButtonProperty); }
+            set { this.SetValue(TestButtonProperty, value); }
         }
 
         public static readonly DependencyProperty StatusProperty = DependencyProperty.Register("StatusText", typeof(string), typeof(MainWindow));
@@ -363,16 +378,141 @@ namespace DayTrader
         protected override void OnClosing(CancelEventArgs e)
         {
             StopScanning();
-            if (_scanner != null)
-            {
+            StopWebsocket();
+            Dispose();
+            base.OnClosing(e);
+        }
+
+        private void DisposeScanner() {
+            if (_scanner != null) {
                 _scanner.Dispose();
                 _scanner = null;
             }
-            base.OnClosing(e);
         }
-    }
+        private void Dispose() {
+            DisposeScanner();
+            DisposeWebsocket();
+        }
 
-    public class TrendView
+        private CustomBinanceAPI wsApi; 
+		private void btnTestWs_Click(object sender, RoutedEventArgs e) {
+            ToggleWebsocket();
+		}
+
+        private bool isWebSocketRunning;
+        private void ToggleWebsocket() {
+            if (isWebSocketRunning) {
+                StopWebsocket();
+                isWebSocketRunning = false;
+            } else if (_running) {
+                StartWebsocket();
+                isWebSocketRunning = true;
+            }
+        }
+
+        Thread websocketThread;
+        bool wsRunning;
+
+        private void StopWebsocket() {
+            if (websocketThread != null) {
+                wsRunning = false;
+                websocketThread.Join();
+                websocketThread = null;
+                TestWsButton = "Start WS";
+            }
+        }
+
+        private void StartWebsocket() {
+            DisposeWebsocket();
+            TestWsButton = "Stop WS";
+            wsRunning = true;
+            websocketThread = new Thread(new ThreadStart(DoWebsocket));
+            websocketThread.Start();
+
+        }
+        private IWebSocket tickerWebSocket;
+
+
+
+        private string[] GetKlineSymbols() {
+            if (_scanner == null)
+                return new string[] { "bnbbtc@kline_1m", "bnbbtc@kline_3m" };
+
+            List<string> klineTimeframes = new List<string>();
+            foreach(KeyValuePair<int, string> pair in _scanner.timeframeKlines) {
+                string kline = $"kline_{pair.Value}";
+                foreach (ExtendedSymbol symbol in _scanner.Symbols) {
+                    string symbolKline = $"{symbol.MarketSymbol.ToLowerInvariant()}@{kline}";
+                    klineTimeframes.Add(symbolKline);
+                }
+			}
+            return klineTimeframes.ToArray();
+        }
+
+        private async void DoWebsocket() {
+
+            wsApi = new CustomBinanceAPI();
+
+            Trace.WriteLine($"Starting websocket");
+
+            string[] symbols = GetKlineSymbols();
+            tickerWebSocket = await wsApi.GetCandlesTimeFrameWebSocketAsync((IReadOnlyCollection<KeyValuePair<string, MarketCandle>> result) => {
+                foreach (KeyValuePair<string, MarketCandle> pair in result) {
+                    int minutes = pair.Value.PeriodSeconds / 60;
+                    MarketCandle candle = pair.Value;
+                    // either update the close price or insert a new candle
+                    if (symbolLookup[pair.Key].TimeframeCandles[minutes][0].Timestamp == candle.Timestamp) {
+                        symbolLookup[pair.Key].TimeframeCandles[minutes][0].ClosePrice = candle.ClosePrice;
+                    } else {
+                        symbolLookup[pair.Key].TimeframeCandles[minutes].Insert(0, candle);
+                        
+                        if (symbolLookup[pair.Key].TimeframeCandles[minutes].Count > Scanner.MaxCandlesPerTimeframe) {
+                            symbolLookup[pair.Key].TimeframeCandles[minutes].RemoveAt(symbolLookup[pair.Key].TimeframeCandles[minutes].Count - 1);
+                        }
+                    }
+                    symbolLookup[pair.Key].NotifyCandleUpdate(minutes);
+                }
+            }, symbols);
+			//tickerWebSocket.Connected += TickerWebSocket_Connected;
+			tickerWebSocket.Disconnected += TickerWebSocket_Disconnected;
+            while (wsRunning) {
+
+                if (!wsRunning) {
+                    break;
+                }
+                SetStatusText($"sleeping.");
+                Thread.Sleep(1000);
+
+            }
+
+            DisposeWebsocket();
+        }
+
+		private Task TickerWebSocket_Disconnected(IWebSocket socket) {
+            Trace.WriteLine($"Websocket disconnected");
+            return null;
+        }
+
+        private Task TickerWebSocket_Connected(IWebSocket socket) {
+            Trace.WriteLine($"Websocket connected");
+            return null;
+        }
+
+		private void DisposeWebsocket() {
+            
+            if (tickerWebSocket != null) {
+                tickerWebSocket.Dispose();
+                tickerWebSocket = null;
+            }
+
+            if (wsApi != null) {
+                wsApi.Dispose();
+                wsApi = null;
+			}
+		}
+	}
+
+	public class TrendView
     {
         public SolidColorBrush TrendBrush { get; private set; }
         public string TrendString { get; private set; }
@@ -384,29 +524,17 @@ namespace DayTrader
         }
     }
 
-    public class OldTrendView
-    {
-        public SolidColorBrush FourHourBrush { get; private set; }
-        public SolidColorBrush OneHourBrush { get; private set; }
-        public string FourHourTrend { get; private set; }
-        public string OneHourTrend { get; private set; }
-
-        public OldTrendView(SymbolTrend[] trends)
-        {
-            FourHourBrush = PercentageToBrushConverter.GetBrushFromPercentage(trends[0].TrendRaw);
-            OneHourBrush = PercentageToBrushConverter.GetBrushFromPercentage(trends[1].TrendRaw);
-            FourHourTrend = string.Format("{00:P2}", trends[0].Trend);
-            OneHourTrend = string.Format("{00:P2}", trends[1].Trend);
-        }
-    }
 
     public class SignalView
     {
         public Signal Signal { get; set; }
         public TrendView FourHourTrendView { get; private set; }
+        public TrendView OneHourTrendView { get; private set; }
         public SignalView(Signal signal)
         {
             Signal = signal;
+            OneHourTrendView = new TrendView(signal.OneHourTrendObject);
+            FourHourTrendView = new TrendView(signal.FourHourTrendObject);
         }
 
 
@@ -424,8 +552,9 @@ namespace DayTrader
         public string BBBandwidth { get { return Signal.BBBandwidth; } }
 
     }
+   
 
-    public class SymbolView
+    public class SymbolView : INotifyPropertyChanged
     {
         public ExtendedSymbol Symbol { get; set; }
         public TrendView FourHourTrendView { get; private set; }
@@ -433,12 +562,54 @@ namespace DayTrader
         {
             Symbol = symbol;
             FourHourTrendView = new TrendView(symbol.Trends[0]);
+			symbol.TimeframeChanged += Symbol_TimeframeChanged; ;
         }
-        public string MarketSymbol { get { return Symbol.MarketSymbol; } }
+
+		private void Symbol_TimeframeChanged(object sender, TimeframeChangedEventArgs e) {
+            int timeframe = e.TimeframePeriod;
+            if (timeframe == 60) {
+                updateProperty("OneHourTrend");
+                updateProperty("OneHourBrush");
+            } else if (timeframe == 240) {
+                updateProperty("FourHourTrend");
+                updateProperty("FourHourBrush");
+            } else {
+                updateProperty("timeframe_" + e.TimeframePeriod);
+            }
+        }
+
+		public string MarketSymbol { get { return Symbol.MarketSymbol; } }
 
         public SolidColorBrush FourHourBrush { get { return PercentageToBrushConverter.GetBrushFromPercentage(Symbol.Trends[0].TrendRaw); } }
         public SolidColorBrush OneHourBrush { get { return PercentageToBrushConverter.GetBrushFromPercentage(Symbol.Trends[1].TrendRaw); } }
         public string FourHourTrend { get { return string.Format("{00:P2}", Symbol.Trends[0].Trend); } }
         public string OneHourTrend { get { return string.Format("{00:P2}", Symbol.Trends[1].Trend); } }
-    }
+
+
+
+        //the vaiable must set to ture when update in this calss is ion progress
+        private bool sourceUpdating;
+        public bool SourceUpdating {
+            get { return sourceUpdating; }
+            set {
+                sourceUpdating = value; updateProperty("SourceUpdating");
+            }
+        }
+
+        public void updateProperty(string name) {
+            if (name == "SourceUpdating") {
+                if (PropertyChanged != null) {
+                    PropertyChanged(this, new PropertyChangedEventArgs(name));
+                }
+            } else {
+                SourceUpdating = true;
+                if (PropertyChanged != null) {
+                    PropertyChanged(this, new PropertyChangedEventArgs(name));
+                }
+                SourceUpdating = false;
+            }
+        }
+
+		public event PropertyChangedEventHandler PropertyChanged;
+	}
 }
