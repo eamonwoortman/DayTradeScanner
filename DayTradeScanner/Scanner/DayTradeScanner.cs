@@ -81,6 +81,7 @@ namespace DayTradeScanner
         public string MarketSymbol { get; private set; }
 
         public Dictionary<int, List<MarketCandle>> TimeframeCandles { get; private set; }
+        public Dictionary<int, DateTime> SignalTimestamps { get; private set; }
 
         public ExtendedSymbol(ExchangeMarket symbol, ExchangeTicker ticker, SymbolTrend[] trends) {
             this.Symbol = symbol;
@@ -88,6 +89,7 @@ namespace DayTradeScanner
             this.Trends = trends;
             MarketSymbol = symbol.MarketSymbol;
             TimeframeCandles = new Dictionary<int, List<MarketCandle>>();
+            SignalTimestamps = new Dictionary<int, DateTime>();
         }
 
         public delegate void TimeframeChangedEventHandler(object sender, TimeframeChangedEventArgs e);
@@ -178,6 +180,11 @@ namespace DayTradeScanner
 
         public async Task GetInitialCandles(int periodMinutes, CancellationToken ct) {
             try {
+                int maxCandles = MaxCandlesPerTimeframe;
+                // we don't need 150 candles for the non-strategy symbols (1h and 4h trend)
+                if (!StrategyPeriodsMinutes.Contains(periodMinutes)) {
+                    maxCandles = 4;
+                }
                 foreach (ExtendedSymbol symbol in Symbols) {
                     if (ct.IsCancellationRequested) {
                         ct.ThrowIfCancellationRequested();
@@ -193,7 +200,7 @@ namespace DayTradeScanner
                     if (_api == null) {
                         break;
 					}
-                    var candles = (await _api.GetCandlesAsync(symbol.Symbol.MarketSymbol, 60 * periodMinutes, DateTime.Now.AddMinutes(-periodMinutes * MaxCandlesPerTimeframe), null, MaxCandlesPerTimeframe)).Reverse().ToList();
+                    var candles = (await _api.GetCandlesAsync(symbol.Symbol.MarketSymbol, 60 * periodMinutes, DateTime.Now.AddMinutes(-periodMinutes * maxCandles), null, maxCandles)).Reverse().ToList();
                     candles = AddMissingCandles(candles, periodMinutes);
                     marketCandles[periodMinutes].AddRange(candles);
                     symbol.NotifyCandleUpdate(periodMinutes);
@@ -388,6 +395,27 @@ namespace DayTradeScanner
 			}
 		}
 
+        /// <summary>
+        /// Multiplies the signal timeframe it need to cool down before a new signal is thrown
+        /// </summary>
+        private const double SignalCooldownMultiplier = 2;
+        
+
+        private bool IsSignalWithinCooldown(ExtendedSymbol symbol, int minutes) {
+            if (!symbol.SignalTimestamps.ContainsKey(minutes)) {
+                return false;
+			}
+            TimeSpan timeSinceLastSignal = DateTime.UtcNow - symbol.SignalTimestamps[minutes];
+            return timeSinceLastSignal.TotalSeconds < (minutes * SignalCooldownMultiplier) * 60;
+        }
+
+        private void RecordSignalTimestamp(ExtendedSymbol symbol, int minutes) {
+            if (!symbol.SignalTimestamps.ContainsKey(minutes)) {
+                symbol.SignalTimestamps.Add(minutes, DateTime.UtcNow);
+            } else {
+                symbol.SignalTimestamps[minutes] = DateTime.UtcNow;
+            }
+        }
 
         /// <summary>
         /// Performs a scan for all filtered symbols
@@ -399,7 +427,7 @@ namespace DayTradeScanner
             {
                 Dictionary<int, List<MarketCandle>> symbolCandles = symbol.TimeframeCandles;
                 List<MarketCandle> candles = symbolCandles[minutes];
-
+                
                 // scan candles for buy/sell signal
                 TradeType tradeType = TradeType.Long;
 
@@ -409,6 +437,11 @@ namespace DayTradeScanner
                     // ignore signals for shorts when not allowed
                     if (tradeType == TradeType.Short && !_settings.AllowShorts) return null;
 
+                    // ignore if this signal is within the cooldown period of the last thrown signal
+                    if (IsSignalWithinCooldown(symbol, minutes)) return null;
+                    RecordSignalTimestamp(symbol, minutes);
+
+
                     // got buy/sell signal.. write to console
                     int beepFrequency = symbol.Trends[1].Trend > 0 ? 1000 : 500;
                     Console.Beep(beepFrequency, 200);
@@ -416,7 +449,7 @@ namespace DayTradeScanner
                     return new Signal() {
                         Symbol = symbol.Symbol.MarketSymbol,
                         Trade = tradeType.ToString(),
-                        Date = $"{candles[0].Timestamp.AddHours(2):dd-MM-yyyy HH:mm}",
+                        Date = $"{candles[0].Timestamp.ToLocalTime():dd-MM-yyyy HH:mm}",
                         TimeFrame = $"{minutes} min",
                         HyperTraderURI = GetHyperTradeURI(symbol.Symbol, minutes),
                         Volume = symbol.Ticker.Volume,

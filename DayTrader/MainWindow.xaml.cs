@@ -235,18 +235,9 @@ namespace DayTrader
             }));
         }
 
-        private void UpdateTrendControls()
-        {
-            Dispatcher.BeginInvoke((Action)(() =>
-            {
-                trendDataGrid.Items.Refresh();
-                OneHourTrendText = _scanner.OneHourTrend;
-                FourHourTrendText = _scanner.FourHourTrend;
-            }));
-        }
 
         private CancellationTokenSource cancellationSource;
-        private async Task FetchTrendCandles(Settings settings) {
+        private async Task FetchInitialCandles(Settings settings) {
             int idx = 0;
             Task[] tasks = new Task[_scanner.PeriodsMinutes.Count];
             foreach (int periodMinutes in _scanner.PeriodsMinutes) {
@@ -268,8 +259,34 @@ namespace DayTrader
             await Task.WhenAll(tasks);
         }
 
-        private async void DoScan()
-		{
+
+        private async Task InitializeWebsocket() {
+            SetStatusText($"Starting websocket...");
+            wsApi = new CustomBinanceAPI();
+            string[] symbols = GetKlineSymbols();
+            tickerWebSocket = await wsApi.GetCandlesTimeFrameWebSocketAsync((IReadOnlyCollection<KeyValuePair<string, MarketCandle>> result) => {
+                foreach (KeyValuePair<string, MarketCandle> pair in result) {
+                    int minutes = pair.Value.PeriodSeconds / 60;
+                    MarketCandle candle = pair.Value;
+                    // either update the close price or insert a new candle
+                    if (symbolLookup[pair.Key].TimeframeCandles[minutes][0].Timestamp == candle.Timestamp) {
+                        symbolLookup[pair.Key].TimeframeCandles[minutes][0].ClosePrice = candle.ClosePrice;
+                    } else {
+                        symbolLookup[pair.Key].TimeframeCandles[minutes].Insert(0, candle);
+
+                        if (symbolLookup[pair.Key].TimeframeCandles[minutes].Count > Scanner.MaxCandlesPerTimeframe) {
+                            symbolLookup[pair.Key].TimeframeCandles[minutes].RemoveAt(symbolLookup[pair.Key].TimeframeCandles[minutes].Count - 1);
+                        }
+                    }
+                    symbolLookup[pair.Key].NotifyCandleUpdate(minutes);
+                }
+            }, symbols);
+            //tickerWebSocket.Connected += TickerWebSocket_Connected;
+            tickerWebSocket.Disconnected += TickerWebSocket_Disconnected;
+        }
+
+
+        private async void DoScan() {
             var settings = SettingsStore.Load();
 
             SetStatusText($"initializing {settings.Exchange} with 24hr volume of {settings.Min24HrVolume} ...");
@@ -278,16 +295,11 @@ namespace DayTrader
             try {
                 await _scanner.Initialize();
                 await FillTrendSymbols();
-                await FetchTrendCandles(settings);
+                await FetchInitialCandles(settings);
+                await InitializeWebsocket();
             } catch (Exception ex) {
                 Console.WriteLine($"[DoScan] caught error: {ex}");
 			}
-            if (!wsRunning) {
-                await Dispatcher.BeginInvoke((Action)(() =>
-                {
-                    StartWebsocket();
-                }));
-            }
 
             while (_running) {
                 await ScanSymbols(settings);
@@ -306,6 +318,7 @@ namespace DayTrader
 			}
 
             DisposeScanner();
+            DisposeWebsocket();
         }
 
         private void SetStatusText(string statusTxt)
@@ -378,7 +391,6 @@ namespace DayTrader
         protected override void OnClosing(CancelEventArgs e)
         {
             StopScanning();
-            StopWebsocket();
             Dispose();
             base.OnClosing(e);
         }
@@ -395,43 +407,7 @@ namespace DayTrader
         }
 
         private CustomBinanceAPI wsApi; 
-		private void btnTestWs_Click(object sender, RoutedEventArgs e) {
-            ToggleWebsocket();
-		}
-
-        private bool isWebSocketRunning;
-        private void ToggleWebsocket() {
-            if (isWebSocketRunning) {
-                StopWebsocket();
-                isWebSocketRunning = false;
-            } else if (_running) {
-                StartWebsocket();
-                isWebSocketRunning = true;
-            }
-        }
-
-        Thread websocketThread;
-        bool wsRunning;
-
-        private void StopWebsocket() {
-            if (websocketThread != null) {
-                wsRunning = false;
-                websocketThread.Join();
-                websocketThread = null;
-                TestWsButton = "Start WS";
-            }
-        }
-
-        private void StartWebsocket() {
-            DisposeWebsocket();
-            TestWsButton = "Stop WS";
-            wsRunning = true;
-            websocketThread = new Thread(new ThreadStart(DoWebsocket));
-            websocketThread.Start();
-
-        }
         private IWebSocket tickerWebSocket;
-
 
 
         private string[] GetKlineSymbols() {
@@ -447,45 +423,6 @@ namespace DayTrader
                 }
 			}
             return klineTimeframes.ToArray();
-        }
-
-        private async void DoWebsocket() {
-
-            wsApi = new CustomBinanceAPI();
-
-            Trace.WriteLine($"Starting websocket");
-
-            string[] symbols = GetKlineSymbols();
-            tickerWebSocket = await wsApi.GetCandlesTimeFrameWebSocketAsync((IReadOnlyCollection<KeyValuePair<string, MarketCandle>> result) => {
-                foreach (KeyValuePair<string, MarketCandle> pair in result) {
-                    int minutes = pair.Value.PeriodSeconds / 60;
-                    MarketCandle candle = pair.Value;
-                    // either update the close price or insert a new candle
-                    if (symbolLookup[pair.Key].TimeframeCandles[minutes][0].Timestamp == candle.Timestamp) {
-                        symbolLookup[pair.Key].TimeframeCandles[minutes][0].ClosePrice = candle.ClosePrice;
-                    } else {
-                        symbolLookup[pair.Key].TimeframeCandles[minutes].Insert(0, candle);
-                        
-                        if (symbolLookup[pair.Key].TimeframeCandles[minutes].Count > Scanner.MaxCandlesPerTimeframe) {
-                            symbolLookup[pair.Key].TimeframeCandles[minutes].RemoveAt(symbolLookup[pair.Key].TimeframeCandles[minutes].Count - 1);
-                        }
-                    }
-                    symbolLookup[pair.Key].NotifyCandleUpdate(minutes);
-                }
-            }, symbols);
-			//tickerWebSocket.Connected += TickerWebSocket_Connected;
-			tickerWebSocket.Disconnected += TickerWebSocket_Disconnected;
-            while (wsRunning) {
-
-                if (!wsRunning) {
-                    break;
-                }
-                SetStatusText($"sleeping.");
-                Thread.Sleep(1000);
-
-            }
-
-            DisposeWebsocket();
         }
 
 		private Task TickerWebSocket_Disconnected(IWebSocket socket) {

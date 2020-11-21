@@ -4,7 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DayTrader"
         mc:Ignorable="d" 
-        Title="Daytrade scanner v2.4"  Width="900" Height="480"
+        Title="Daytrade scanner v2.5"  Width="900" Height="480"
         x:Class="DayTrader.MainWindow">
     <Window.Resources>
         <local:PercentageToBrushConverter x:Key="brushConverter"/>
@@ -93,7 +93,6 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <Button Name="btnStart"  Content="{Binding StartButton}" Grid.Column="0" />
-            <Button Name="btnTestWs"  Content="{Binding TestWsButton}" Grid.Column="1" Click="btnTestWs_Click"/>
             <Button Name="btnDonate" Content="Donate"  Grid.Column="3" />
         </Grid>
 
