@@ -18,7 +18,7 @@ namespace DayTrader.ConsoleApp
 				foreach (var symbol in scanner.Symbols)
 				{
 					int minutes = Scanner.TimeframeToMinutes(settings.TimeFrames[0]);
-					var task = scanner.ScanAsync(symbol, minutes);
+					var task = scanner.ScanSymbolsAsync(symbol, minutes);
 					task.Wait();
 					var signal = task.Result;
 					if (signal != null)

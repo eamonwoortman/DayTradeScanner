@@ -1,8 +1,9 @@
-﻿using System;
-using DayTradeScanner;
+﻿using DayTradeScanner;
 using DayTradeScanner.Backtest;
 using DayTradeScanner.Bot.Implementation;
 using ExchangeSharp;
+using System;
+using System.Runtime;
 
 namespace Backtester.Console.App
 {
@@ -22,8 +23,9 @@ namespace Backtester.Console.App
             // create new backtester
             var tester = new BackTester();
 
-            // test the strategy on bitfinex
-			tester.Test(new ExchangeBitfinexAPI(), strategy, startTime);
+			// test the strategy on bitfinex
+			var exchangeApi = ExchangeAPI.GetExchangeAPIAsync("Bitfinex").Result;
+			tester.Test(exchangeApi, strategy, startTime);
         }
     }
 }

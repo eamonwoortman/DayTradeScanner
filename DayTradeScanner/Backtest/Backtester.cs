@@ -20,7 +20,7 @@ namespace DayTradeScanner
 		/// <returns>list of 5m candle sticks</returns>
 		/// <param name="api">exchange api</param>
 		/// <param name="symbol">symbol to get the candlesticks from</param>
-		private List<MarketCandle> DownloadCandlesFromExchange(ExchangeAPI api, string symbol, DateTime startDate, DateTime endDate)
+		private List<MarketCandle> DownloadCandlesFromExchange(IExchangeAPI api, string symbol, DateTime startDate, DateTime endDate)
 		{
 			// get candle stick data
 			Console.WriteLine($"Downloading 5m candlesticks for {symbol} from {api.Name}");
@@ -54,7 +54,7 @@ namespace DayTradeScanner
 		/// </summary>
 		/// <param name="api">exchange api</param>
 		/// <param name="strategy">strategy to test</param>
-		public void Test(ExchangeAPI api, IStrategy strategy, DateTime startTime)
+		public void Test(IExchangeAPI api, IStrategy strategy, DateTime startTime)
 		{
 			// Get candle sticks
 			var allCandles = _cache.Load(strategy.Symbol);

@@ -95,9 +95,11 @@ namespace DayTradeScanner
         public delegate void TimeframeChangedEventHandler(object sender, TimeframeChangedEventArgs e);
         public event TimeframeChangedEventHandler TimeframeChanged;
 
-        private decimal GetRawTrend(MarketCandle candle) {
-            decimal diff = candle.ClosePrice - candle.OpenPrice;
-            decimal trendPercentage = (diff / candle.OpenPrice) * 100M;
+        private decimal GetRawTrend(MarketCandle previousCandle, MarketCandle currentCandle) {
+            if (previousCandle == null || currentCandle == null || previousCandle.ClosePrice == 0)
+                return 0M;
+            decimal diff = currentCandle.ClosePrice - previousCandle.ClosePrice;
+            decimal trendPercentage = (diff / previousCandle.ClosePrice) * 100M;
             return trendPercentage;
         }
 
@@ -105,11 +107,13 @@ namespace DayTradeScanner
             for (int i = 0; i < Trends.Length; i++) {
                 SymbolTrend trend = Trends[i];
                 int minutes = trend.TimeframeInHours * 60;
-                if (TimeframeCandles?.Count == 0 || !TimeframeCandles.ContainsKey(minutes) || TimeframeCandles[minutes].Count == 0) {
+                if (TimeframeCandles?.Count == 0 || !TimeframeCandles.ContainsKey(minutes) || TimeframeCandles[minutes].Count < 2) {
                     continue;
 				}
-                trend.Candle = TimeframeCandles[minutes][0];
-                trend.TrendRaw = GetRawTrend(trend.Candle);
+                var currentCandle = TimeframeCandles[minutes][0];
+                var previousCandle = TimeframeCandles[minutes][1];
+				trend.Candle = currentCandle;
+                trend.TrendRaw = GetRawTrend(previousCandle, currentCandle);
                 Trends[i] = trend;
             }
 		}
@@ -134,7 +138,7 @@ namespace DayTradeScanner
     public class Scanner
     {
         private Settings _settings;
-        private ExchangeAPI _api;
+        private IExchangeAPI _api;
         private List<ExtendedSymbol> _symbols = new List<ExtendedSymbol>();
         private SimpleWeightedAverage fourHourTrendAverage = new SimpleWeightedAverage();
         private SimpleWeightedAverage oneHourTrendAverage = new SimpleWeightedAverage();
@@ -142,35 +146,17 @@ namespace DayTradeScanner
         public Scanner(Settings settings)
         {
             _settings = settings;
-
-            switch (_settings.Exchange.ToLowerInvariant())
-            {
-                case "bitfinex":
-                    _api = new ExchangeBitfinexAPI();
-                    break;
-
-                case "bittrex":
-                    _api = new ExchangeBittrexAPI();
-                    break;
-
-                case "binance":
-                    _api = new ExchangeBinanceAPI();
-                    break;
-
-                case "kraken":
-                    _api = new ExchangeKrakenAPI();
-                    break;
-
-                default:
-                    Console.WriteLine($"Unknown exchange:{_settings.Exchange}");
-                    return;
-            }
-
-            _api.RateLimit = new RateGate(800, TimeSpan.FromSeconds(60d));
+            SetupAPI();
         }
 
-        public List<int> StrategyPeriodsMinutes { get; private set; }
-        public List<int> PeriodsMinutes { get; private set; }
+        private async void SetupAPI()
+        {
+            _api = await ExchangeAPI.GetExchangeAPIAsync(_settings.Exchange.ToLowerInvariant());
+            _api.RateLimit = new RateGate(800, TimeSpan.FromSeconds(60d));
+		}
+
+		public List<int> StrategyPeriodsMinutes { get; private set; }
+        public HashSet<int> PeriodsMinutes { get; private set; }
         public Dictionary<int, string> timeframeKlines;
         public const int MaxCandlesPerTimeframe = 150;
 
@@ -206,7 +192,9 @@ namespace DayTradeScanner
                     symbol.NotifyCandleUpdate(periodMinutes);
                     Trace.WriteLine($"Got {candles.Count} candles in {symbol.Symbol.MarketSymbol} for timeframe {periodMinutes}");
                 }
-            } catch (Exception ex) { Console.WriteLine($"[DayTrader] Exception caught: {ex}"); }
+            } 
+            catch (APIException apiEx) { Console.WriteLine($"[DayTrader] API Exception caught: {apiEx}"); }
+            catch (Exception ex) { Console.WriteLine($"[DayTrader] Exception caught: {ex}"); }
         }
 
         private void Setup() {
@@ -218,10 +206,10 @@ namespace DayTradeScanner
                 StrategyPeriodsMinutes.Add(minutes);
             }
 
-            PeriodsMinutes = new List<int>(StrategyPeriodsMinutes);
+            PeriodsMinutes = new HashSet<int>(StrategyPeriodsMinutes);
             PeriodsMinutes.Add(60); // add hour trend
             PeriodsMinutes.Add(240); // add 4 hour trend
-            PeriodsMinutes = PeriodsMinutes.OrderByDescending(x => x).ToList();
+            PeriodsMinutes = PeriodsMinutes.OrderByDescending(x => x).ToHashSet();
 
             foreach (int minutes in PeriodsMinutes) {
                 string klineTimeframe = PeriodToKlineTimeframe(minutes);
@@ -277,7 +265,7 @@ namespace DayTradeScanner
 
                 if (ticker.Ask < _settings.MinPrice)
                 {
-                    Trace.WriteLine($"Ignoring because price is too low: {ticker.Ask}");
+                    Trace.WriteLine($"[{ticker.MarketSymbol}] Ignoring because price is too low: {ticker.Ask}");
                     continue;
                 }
 
@@ -316,7 +304,7 @@ namespace DayTradeScanner
             return fourHourCandle;
         }
 
-            private async Task<List<MarketCandle>> GetTrendCandles(string marketSymbol)
+        private async Task<List<MarketCandle>> GetTrendCandles(string marketSymbol)
         {
             var candles = (await _api.GetCandlesAsync(marketSymbol, 60 * 60, DateTime.UtcNow.AddHours(-4), null, 4)).Reverse().ToList();
             if (candles.Count() != 4)
@@ -356,12 +344,12 @@ namespace DayTradeScanner
 
 
         public string GetHyperTradeURI(ExchangeMarket symbol, int minutes) {
-            string urlSymbol = $"{symbol.BaseCurrency}-{symbol.QuoteCurrency}";
+            string urlSymbol = $"{symbol.BaseCurrency}{symbol.QuoteCurrency}";
             string exchange = _settings.Exchange.ToLowerInvariant();
-            return $"hypertrader://{exchange}/{urlSymbol}/{minutes}";
-        }
+            return $"https://www.tradingview.com/chart/?symbol={exchange}:{urlSymbol}&interval={minutes}";
+		}
 
-        public void Dispose()
+		public void Dispose()
         {
             if (_api != null)
             {

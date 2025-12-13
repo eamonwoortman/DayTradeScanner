@@ -13,9 +13,10 @@ namespace ExchangeSharp {
 	internal sealed class CustomBinanceAPI : BinanceGroupCommon {
 		public override string BaseUrl { get; set; } = "https://api.binance.com/api/v1";
 		public override string BaseUrlWebSocket { get; set; } = "wss://stream.binance.com:9443";
-		public override string BaseUrlPrivate { get; set; } = "https://api.binance.com/api/v3";
-		public override string WithdrawalUrlPrivate { get; set; } = "https://api.binance.com/wapi/v3";
-		public override string BaseWebUrl { get; set; } = "https://www.binance.com";
+		
+        //public override string BaseUrlPrivate { get; set; } = "https://api.binance.com/api/v3";
+		//public override string WithdrawalUrlPrivate { get; set; } = "https://api.binance.com/wapi/v3";
+		//public override string BaseWebUrl { get; set; } = "https://www.binance.com";
 
         private const int MaxWebsocketStreams = 1024;
 
@@ -46,8 +47,8 @@ namespace ExchangeSharp {
                 Trace.WriteLine($"[GetCandlesTimeFrameWebSocketAsync] Symbol streams ({symbolStreams.Length}) exceeds socket stream limit ({MaxWebsocketStreams})");
                 Array.Resize(ref symbolStreams, MaxWebsocketStreams);
             }
-            string url = $"/ws/{string.Join("/", symbolStreams)}";
-            return ConnectWebSocketAsync(url, async (_socket, msg) => {
+            string url = $"{BaseUrlWebSocket}/ws/{string.Join("/", symbolStreams)}";
+			return ConnectWebSocketAsync(url, async (_socket, msg) => {
                 await Task.Run(() => HandleWebsocketResponse(msg, callback));
 			});
 		}
@@ -106,8 +107,8 @@ namespace ExchangeSharp {
                 Timestamp = timestamp,
                 Name = marketSymbol,
                 PeriodSeconds = periodSeconds,
-                BaseCurrencyVolume = (double)baseCurrencyVolume,
-                QuoteCurrencyVolume = (double)quoteCurrencyVolume,
+                BaseCurrencyVolume = baseCurrencyVolume,
+                QuoteCurrencyVolume = quoteCurrencyVolume,
                 ClosePrice = close,
                 OpenPrice = open,
                 HighPrice = high,
