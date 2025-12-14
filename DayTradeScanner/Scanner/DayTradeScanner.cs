@@ -1,9 +1,8 @@
-﻿using Avalonia.Controls;
+﻿using DayTraderScanner;
 using DayTradeScanner.Bot.Implementation;
 using ExchangeSharp;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -103,17 +102,31 @@ namespace DayTradeScanner
             return trendPercentage;
         }
 
-        public void UpdateTrends() {
-            for (int i = 0; i < Trends.Length; i++) {
+		public void UpdateTrends() {
+			DateTime utcNow = DateTime.UtcNow;
+			TrendDefinition trendDef = TrendDefinitions.Intraday;
+
+			for (int i = 0; i < Trends.Length; i++) {
                 SymbolTrend trend = Trends[i];
                 int minutes = trend.TimeframeInHours * 60;
-                if (TimeframeCandles?.Count == 0 || !TimeframeCandles.ContainsKey(minutes) || TimeframeCandles[minutes].Count < 2) {
+				if (TimeframeCandles?.Count == 0 || !TimeframeCandles.ContainsKey(minutes) 
+                    || TimeframeCandles[minutes].Count < 2) {
                     continue;
 				}
-                var currentCandle = TimeframeCandles[minutes][0];
-                var previousCandle = TimeframeCandles[minutes][1];
+
+				var candles = TimeframeCandles[minutes];
+                var timespan = TimeSpan.FromHours(trend.TimeframeInHours);
+				var windowSize = TrendWindowHelper.CalculateWindowSize(trendDef, timespan);
+				decimal? trendPercentage = TrendCalculator.CalculateTrendPercent(candles, timespan, windowSize, utcNow);
+
+                if (trendPercentage.HasValue) {
+                    trend.TrendRaw = trendPercentage.Value;
+                } else {
+                    trend.TrendRaw = 0M;
+                }
+				var currentCandle = TimeframeCandles[minutes][0];
+                //var previousCandle = TimeframeCandles[minutes][1];
 				trend.Candle = currentCandle;
-                trend.TrendRaw = GetRawTrend(previousCandle, currentCandle);
                 Trends[i] = trend;
             }
 		}
@@ -169,7 +182,14 @@ namespace DayTradeScanner
                 int maxCandles = MaxCandlesPerTimeframe;
                 // we don't need 150 candles for the non-strategy symbols (1h and 4h trend)
                 if (!StrategyPeriodsMinutes.Contains(periodMinutes)) {
+#if false
+                    TrendDefinition trendDef = TrendDefinitions.Intraday;
+					var timespan = TimeSpan.FromMinutes(periodMinutes);
+					var windowSize = TrendWindowHelper.CalculateWindowSize(trendDef, timespan);
+					maxCandles = windowSize + 1;
+#else
                     maxCandles = 4;
+#endif
                 }
                 foreach (ExtendedSymbol symbol in Symbols) {
                     if (ct.IsCancellationRequested) {
@@ -436,7 +456,7 @@ namespace DayTradeScanner
                     
                     return new Signal() {
                         Symbol = symbol.Symbol.MarketSymbol,
-                        Trade = tradeType.ToString(),
+                        Trade = tradeType,
                         Date = $"{candles[0].Timestamp.ToLocalTime():dd-MM-yyyy HH:mm}",
                         TimeFrame = $"{minutes} min",
                         HyperTraderURI = GetHyperTradeURI(symbol.Symbol, minutes),
@@ -521,7 +541,38 @@ namespace DayTradeScanner
             return minutes;
         }
 
-        public static string PeriodToKlineTimeframe(int minutes) {
+        public static int KlineTimeframeToMinutes(string klineTimeframe) {
+            int minutes = 5;
+            switch (klineTimeframe.ToLowerInvariant()) { //_settings.TimeFrame
+                case "1m":
+                    minutes = 1;
+                    break;
+                case "3m":
+                    minutes = 3;
+                    break;
+                case "5m":
+                    minutes = 5;
+                    break;
+                case "15m":
+                    minutes = 15;
+                    break;
+                case "30m":
+                    minutes = 30;
+                    break;
+                case "1h":
+                    minutes = 60;
+                    break;
+                case "4h":
+                    minutes = 4 * 60;
+                    break;
+                case "1d":
+                    minutes = 1440;
+                    break;
+			}
+            return minutes;
+		}
+
+		public static string PeriodToKlineTimeframe(int minutes) {
             string klineTimeframe = "1m";
             switch (minutes) { //_settings.TimeFrame
                 case 1:
@@ -551,7 +602,11 @@ namespace DayTradeScanner
                 case 240:
                     klineTimeframe = "4h";
                     break;
-            }
+                case 1440:
+                    klineTimeframe = "1d";
+                    break;
+
+			}
             return klineTimeframe;
         }
 

@@ -3,12 +3,26 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DayTrader"
+        xmlns:materialIcons="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
         mc:Ignorable="d" 
         Title="Daytrade scanner v2.5"  Width="900" Height="480"
         x:Class="DayTrader.MainWindow">
     <Window.Resources>
         <local:PercentageToBrushConverter x:Key="brushConverter"/>
 
+        <Style x:Key="TradeDirectionStyle" TargetType="materialIcons:MaterialIcon">
+            <Setter Property="Foreground" Value="AntiqueWhite"></Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Trade}" Value="Short">
+                    <Setter Property="Background" Value="#D32F2F" />
+                    <Setter Property="Kind" Value="TrendingDown" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Trade}" Value="Long">
+                    <Setter Property="Background" Value="#4CAF50" />
+                    <Setter Property="Kind" Value="TrendingUp" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
         <Style x:Key="ChangedCellStyle" TargetType="DataGridCell">
             <Setter Property="Template">
                 <Setter.Value>
@@ -103,9 +117,18 @@
          AlternationCount = "2" AutoGenerateColumns="False" IsReadOnly="True"  ItemsSource="{Binding Signals}" SelectionUnit="Cell">
 
                         <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Trade">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <materialIcons:MaterialIcon ToolTip="{Binding Trade}" Style="{DynamicResource TradeDirectionStyle}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Header = "Date" Binding = "{Binding Date}" Width="100" />
                             <DataGridTextColumn Header = "Symbol" Binding = "{Binding Symbol}" Width="60"/>
+                            <!--
                             <DataGridTextColumn Header = "Trade" Binding = "{Binding Trade}" Width="80"/>
+                            -->
                             <DataGridTextColumn Header = "TimeFrame" Binding = "{Binding TimeFrame}" Width="90"/>
                             <DataGridTextColumn Header = "BB (%)" Binding = "{Binding BBBandwidth}" Width="60"/>
 
@@ -162,7 +185,6 @@
                         <DataGrid Name = "trendDataGrid" 
              AlternationCount = "2" AutoGenerateColumns="False" IsReadOnly="True" 
                                   ItemsSource="{Binding Symbols, UpdateSourceTrigger=PropertyChanged}" ScrollViewer.VerticalScrollBarVisibility="Visible" Grid.Row="2">
-
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header = "Symbol" Binding = "{Binding Symbol.MarketSymbol}" Width="80"/>
                                 <!--
@@ -177,6 +199,13 @@
                                     <DataGridTextColumn.CellStyle>
                                         <Style TargetType="{x:Type DataGridCell}">
                                             <Setter Property="Background" Value="{Binding FourHourBrush, UpdateSourceTrigger=PropertyChanged}" />
+                                            <Style.Triggers>
+                                                
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter Property="Foreground" Value="Black" />
+                                                </Trigger>
+                                                
+                                            </Style.Triggers>
                                         </Style>
                                     </DataGridTextColumn.CellStyle>
                                 </DataGridTextColumn>
@@ -184,10 +213,27 @@
                                     <DataGridTextColumn.CellStyle>
                                         <Style TargetType="{x:Type DataGridCell}">
                                             <Setter Property="Background" Value="{Binding OneHourBrush, UpdateSourceTrigger=PropertyChanged}" />
+                                            <Style.Triggers>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter Property="Foreground" Value="Black" />
+                                                </Trigger>
+                                                
+                                            </Style.Triggers>
                                         </Style>
                                     </DataGridTextColumn.CellStyle>
                                 </DataGridTextColumn>
 
+                                <DataGridTemplateColumn Header = "Chart" Width="60">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                <Button Margin="2,0,2,0" Content="4H" Width="20" Click="ChartButton_Clicked"/>
+                                                <Button Margin="2,0,2,0" Content="1H" Width="20" Click="ChartButton_Clicked"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+
+                                </DataGridTemplateColumn>
                                 <!--
                                 <DataGridTextColumn Header = "1m candle" Binding = "{Binding Symbol.TimeframeCandles[1][0].Timestamp, NotifyOnTargetUpdated=True}" Width="60">
                                 </DataGridTextColumn>

@@ -6,7 +6,6 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Controls;
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Windows.Data;
@@ -14,8 +13,6 @@ using System.Globalization;
 using System.Windows.Media;
 using System.ComponentModel;
 using ExchangeSharp;
-using SharpDX;
-using Newtonsoft.Json.Linq;
 
 namespace DayTrader
 {
@@ -33,7 +30,7 @@ namespace DayTrader
 
         }
     }
-    public class PercentageToBrushConverter : IValueConverter
+	public class PercentageToBrushConverter : IValueConverter
     {
         static readonly Color RedColor = Color.FromRgb(244, 67, 54);
         static readonly Color GreenColor = Color.FromRgb(0, 200, 83);
@@ -369,8 +366,19 @@ namespace DayTrader
             set { this.SetValue(OneHourTrendProperty, value); }
         }
 
+        private void ChartButton_Clicked(object sender, RoutedEventArgs e)
+        {
+            Button cmd = (Button)sender;
+			if (cmd.DataContext is SymbolView symbolView)
+			{
+                string buttonTimeframe = cmd.Content as string;
+                int minutes = Scanner.KlineTimeframeToMinutes(buttonTimeframe);
+				string hypertraderURI = _scanner.GetHyperTradeURI(symbolView.Symbol.Symbol, minutes);
+				StartHyperTrader(hypertraderURI);
+			}
+		}
 
-        private void SignalButton_Clicked(object sender, RoutedEventArgs e) {
+		private void SignalButton_Clicked(object sender, RoutedEventArgs e) {
             Button cmd = (Button)sender;
             if (cmd.DataContext is SignalView) {
                 SignalView signal = (SignalView)cmd.DataContext;
@@ -481,7 +489,7 @@ namespace DayTrader
         public string OneHourTrend { get { return string.Format("{00:P2}", Signal.OneHourTrendObject.Trend); } }
 
         public string Symbol { get { return Signal.Symbol; } }
-        public string Trade { get { return Signal.Trade; } }
+        public TradeType Trade { get { return Signal.Trade; } }
         public string Date { get { return Signal.Date; } }
         public string TimeFrame { get { return Signal.TimeFrame; } }
         public string HyperTraderURI { get { return Signal.HyperTraderURI; } }
